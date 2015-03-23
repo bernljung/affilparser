@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -11,6 +12,10 @@ const DBACTION_INSERT = 1
 const DBACTION_UPDATE = 2
 const DBACTION_DELETE = 3
 const DBACTION_NOTHING = 4
+
+const CREATED_BY_USER = 1
+const CREATED_BY_KEYWORD = 2
+const CREATED_BY_FEED = 3
 
 type session struct {
 	db                        *sql.DB
@@ -23,11 +28,11 @@ type session struct {
 	selectCategoryProductStmt *sql.Stmt
 	insertCategoryProductStmt *sql.Stmt
 	deleteCategoryProductStmt *sql.Stmt
-	feeds                     []feed
-	categories                []category
+	feeds                     []*feed
+	categories                []categoryinterface
 	DBOperation               chan message
-	FeedDone                  chan feed
-	FeedError                 chan error
+	FeedDone                  chan feedmessage
+	FeedError                 chan feedmessage
 }
 
 func (s *session) init(dbString string) error {
@@ -64,7 +69,8 @@ func (s *session) prepareSelectFeedsStmt() {
 		"SELECT id, name, url, products_field, name_field, identifier_field," +
 			"description_field, price_field, producturl_field, " +
 			"regular_price_field, currency_field, shipping_price_field, " +
-			"in_stock_field, graphicurl_field, categories_field FROM feeds")
+			"in_stock_field, graphicurl_field, categories_field, " +
+			"sync_categories, allow_empty_description FROM feeds")
 	if err != nil {
 		log.Println(err)
 	}
@@ -72,7 +78,8 @@ func (s *session) prepareSelectFeedsStmt() {
 
 func (s *session) prepareSelectCategoryStmt() {
 	var err error
-	s.selectCategoryStmt, err = s.db.Prepare("SELECT id, name FROM categories")
+	s.selectCategoryStmt, err = s.db.Prepare("SELECT id, name, " +
+		"keywords, description_by_user, created_by_id FROM categories")
 	if err != nil {
 		log.Println(err)
 	}
@@ -81,9 +88,10 @@ func (s *session) prepareSelectCategoryStmt() {
 func (s *session) prepareSelectProductStmt() {
 	var err error
 	s.selectProductStmt, err = s.db.Prepare(
-		"SELECT id, feed_id, name, identifier, price,  regular_price," +
-			" description, currency, url, graphic_url, shipping_price, " +
-			"in_stock FROM products WHERE feed_id = ?")
+		"SELECT id, feed_id, name, name_by_user, identifier, price, " +
+			"regular_price, description, description_by_user, keywords, " +
+			"currency, url, graphic_url, " + "shipping_price, in_stock " +
+			"FROM products WHERE feed_id = ?")
 	if err != nil {
 		log.Println(err)
 	}
@@ -92,8 +100,9 @@ func (s *session) prepareSelectProductStmt() {
 func (s *session) prepareSelectCategoryProductStmt() {
 	var err error
 	s.selectCategoryProductStmt, err = s.db.Prepare(
-		"SELECT cp.category_id, c.name, cp.id FROM categories c " +
-			"INNER JOIN category_product AS cp " +
+		"SELECT cp.id, c.name, c.keywords, c.description_by_user, " +
+			"cp.category_id, cp.created_by_id " +
+			"FROM categories c INNER JOIN category_product AS cp " +
 			"ON c.`id` = cp.`category_id` " +
 			"WHERE cp.`product_id` = ?")
 	if err != nil {
@@ -101,16 +110,16 @@ func (s *session) prepareSelectCategoryProductStmt() {
 	}
 }
 
-func (s *session) getFeeds() error {
-	s.feeds = []feed{}
+func (s *session) selectFeeds() error {
+	s.feeds = []*feed{}
 	rows, err := s.selectFeedStmt.Query()
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 
 	defer rows.Close()
 	for rows.Next() {
-		f := feed{}
+		f := &feed{}
 		err = rows.Scan(
 			&f.ID,
 			&f.Name,
@@ -127,6 +136,8 @@ func (s *session) getFeeds() error {
 			&f.InStockField,
 			&f.GraphicURLField,
 			&f.CategoriesField,
+			&f.SyncCategories,
+			&f.AllowEmptyDescription,
 		)
 
 		if err != nil {
@@ -137,39 +148,81 @@ func (s *session) getFeeds() error {
 	}
 
 	if err := rows.Err(); err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 	return err
 }
 
-func (s *session) run() {
-	defer s.db.Close()
-	s.FeedDone = make(chan feed, len(s.feeds))
-	s.FeedError = make(chan error, len(s.feeds))
+func (s *session) prepare() {
+	s.FeedDone = make(chan feedmessage, len(s.feeds))
+	s.FeedError = make(chan feedmessage, len(s.feeds))
 	s.DBOperation = make(chan message)
 
 	// Run 5 worker instances for db actions
 	for i := 0; i < 5; i++ {
 		go s.worker()
 	}
+}
 
+func (s *session) getResult() {
+	for i := 0; i < len(s.feeds); i++ {
+		select {
+		case m := <-s.FeedDone:
+			log.Println(m.feed.Name + " " + m.action + " completed.")
+		case m := <-s.FeedError:
+			log.Println("Errors in "+m.feed.Name+" "+m.action, m.err)
+		}
+	}
+}
+
+func (s *session) syncProductCategories(update bool) {
+	var err error
+	s.categories, err = s.selectCategories()
+	if err != nil {
+		log.Print(err)
+	}
+	for _, f := range s.feeds {
+		go f.syncProductCategories(s, update)
+	}
+}
+
+func (s *session) update() {
+	defer s.db.Close()
+
+	s.cleanCategories()
 	for _, f := range s.feeds {
 		go f.update(s)
 	}
+	s.getResult()
 
-	for i := 0; i < len(s.feeds); i++ {
-		select {
-		case feed := <-s.FeedDone:
-			log.Println(feed.Name + " done.")
-		case err := <-s.FeedError:
-			log.Println(err)
-		}
+	s.resetCategories()
+	var err error
+	s.categories, err = s.selectCategories()
+	if err != nil {
+		log.Print(err)
 	}
+
+	update := true
+	s.syncProductCategories(update)
+	s.getResult()
+}
+
+func (s *session) refresh() {
+	defer s.db.Close()
+
+	for _, f := range s.feeds {
+		go f.refresh(s)
+	}
+	s.getResult()
+	update := false
+	s.syncProductCategories(update)
+	s.getResult()
 }
 
 func (s *session) worker() {
 	var wg sync.WaitGroup
 	for {
+		var err error
 		select {
 		case message := <-s.DBOperation:
 			switch message.entity.getDBAction() {
@@ -178,21 +231,48 @@ func (s *session) worker() {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					message.entity.insert(message.feed, s)
+					message.entity.insert(s)
+					if err != nil {
+						log.Println(err)
+						message.feed.DBOperationError <- err
+					} else {
+						message.feed.DBOperationDone <- fmt.Sprintf(
+							"Inserted %s: '%s'.",
+							message.entity.getEntityType(),
+							message.entity.getName())
+					}
 				}()
 
 			case DBACTION_UPDATE:
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					message.entity.update(message.feed, s)
+					message.entity.update(s)
+					if err != nil {
+						log.Println(err)
+						message.feed.DBOperationError <- err
+					} else {
+						message.feed.DBOperationDone <- fmt.Sprintf(
+							"Updated %s: '%s'.",
+							message.entity.getEntityType(),
+							message.entity.getName())
+					}
 				}()
 
 			case DBACTION_DELETE:
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					message.entity.delete(message.feed, s)
+					err = message.entity.delete(s)
+					if err != nil {
+						log.Println(err)
+						message.feed.DBOperationError <- err
+					} else {
+						message.feed.DBOperationDone <- fmt.Sprintf(
+							"Deleted %s: '%s'.",
+							message.entity.getEntityType(),
+							message.entity.getName())
+					}
 				}()
 
 			default:
@@ -205,62 +285,56 @@ func (s *session) worker() {
 	}
 }
 
-func (s *session) selectCategories() ([]category, error) {
-	categories := []category{}
+func (s *session) cleanCategories() {
+	s.categories, _ = s.selectCategories()
+
+	for i := len(s.categories) - 1; i >= 0; i-- {
+		c := s.categories[i]
+		if c.getName() == "" {
+			err := c.delete(s)
+			if err != nil {
+				log.Println(err)
+			} else {
+				log.Println(fmt.Sprintf("Deleted empty category: %v", c.getID()))
+				s.categories = append(s.categories[:i], s.categories[i+1:]...)
+			}
+		}
+	}
+}
+
+func (s *session) resetCategories() {
+	s.categories = []categoryinterface{}
+}
+
+func (s *session) selectCategories() ([]categoryinterface, error) {
+	if len(s.categories) > 0 {
+		return s.categories, nil
+	}
+
+	categories := []categoryinterface{}
 	rows, err := s.selectCategoryStmt.Query()
 	if err != nil {
+		log.Println(err)
 		return categories, err
 	}
 
 	defer rows.Close()
 	for rows.Next() {
 		c := category{}
-		if err := rows.Scan(&c.ID, &c.Name); err == nil {
-			categories = append(categories, c)
-		} else {
-			log.Fatal(err)
-		}
-	}
-	if err := rows.Err(); err != nil {
-		log.Fatal(err)
-	}
-	return categories, err
-}
-
-func (s *session) selectProducts(feedID int64) (map[string]product, error) {
-	products := make(map[string]product)
-
-	rows, err := s.selectProductStmt.Query(feedID)
-	if err != nil {
-		return products, err
-	}
-
-	defer rows.Close()
-	for rows.Next() {
-		p := product{}
-		err := rows.Scan(
-			&p.ID,
-			&p.FeedID,
-			&p.Name,
-			&p.Identifier,
-			&p.Price,
-			&p.RegularPrice,
-			&p.Description,
-			&p.Currency,
-			&p.ProductURL,
-			&p.GraphicURL,
-			&p.ShippingPrice,
-			&p.InStock,
-		)
-
+		err := rows.Scan(&c.ID, &c.Name, &c.Keywords, &c.DescriptionByUser,
+			&c.CreatedByID)
 		if err != nil {
-			return products, err
+			log.Println(err)
 		} else {
-			products[p.Identifier] = p
+			categories = append(categories, &c)
 		}
 	}
 
 	err = rows.Err()
+	if err != nil {
+		log.Println(err)
+	}
 
-	return products, err
+	s.categories = categories
+	return categories, err
 }

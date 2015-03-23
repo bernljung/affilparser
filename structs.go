@@ -6,9 +6,11 @@ import (
 
 type entity interface {
 	getDBAction() int
-	insert(f *feed, s *session)
-	update(f *feed, s *session)
-	delete(f *feed, s *session)
+	getName() string
+	getEntityType() string
+	insert(s *session) error
+	update(s *session) error
+	delete(s *session) error
 }
 
 type message struct {
