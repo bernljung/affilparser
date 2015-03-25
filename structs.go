@@ -8,6 +8,7 @@ type entity interface {
 	getDBAction() int
 	getName() string
 	getEntityType() string
+	setSiteID(int)
 	insert(s *session) error
 	update(s *session) error
 	delete(s *session) error

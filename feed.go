@@ -15,7 +15,8 @@ type feedmessage struct {
 }
 
 type feed struct {
-	ID                    int64
+	ID                    int
+	SiteID                int
 	Name                  string
 	URL                   string
 	ProductsField         string
@@ -142,7 +143,8 @@ func (f *feed) refresh(s *session) {
 		refreshed := p.refresh()
 		if refreshed == true {
 			p.FeedID = f.ID
-			m := message{feed: f, entity: p}
+			p.SiteID = f.SiteID
+			m := message{feed: f, entity: &p}
 			f.EntitiesCount++
 			s.DBOperation <- m
 		}
@@ -222,6 +224,7 @@ func (f *feed) deleteFeedCategories(s *session) error {
 
 	for _, c := range categoriesToDelete {
 		c.setDBAction(DBACTION_DELETE)
+		c.setSiteID(f.SiteID)
 		m := message{feed: f, entity: c}
 		f.EntitiesCount++
 		s.DBOperation <- m
@@ -248,6 +251,7 @@ func (f *feed) syncCategories(s *session) error {
 
 	for _, c := range newCategories {
 		c.setDBAction(DBACTION_INSERT)
+		c.setSiteID(f.SiteID)
 		m := message{feed: f, entity: c}
 		f.EntitiesCount++
 		s.DBOperation <- m
@@ -259,7 +263,7 @@ func (f *feed) syncCategories(s *session) error {
 func (f feed) selectProducts(s *session) (map[string]product, error) {
 	products := make(map[string]product)
 
-	rows, err := s.selectProductStmt.Query(f.ID)
+	rows, err := s.selectFeedProductStmt.Query(f.ID)
 	if err != nil {
 		log.Println(err)
 		return products, err
@@ -270,6 +274,7 @@ func (f feed) selectProducts(s *session) (map[string]product, error) {
 		p := product{}
 		err := rows.Scan(
 			&p.ID,
+			&p.SiteID,
 			&p.FeedID,
 			&p.Name,
 			&p.NameByUser,
@@ -285,7 +290,6 @@ func (f feed) selectProducts(s *session) (map[string]product, error) {
 			&p.ShippingPrice,
 			&p.InStock,
 		)
-
 		if err != nil {
 			log.Println(err)
 			return products, err
@@ -377,6 +381,7 @@ func (f *feed) syncProducts(s *session) error {
 
 			if p.DBAction > 0 {
 				p.FeedID = f.ID
+				p.SiteID = f.SiteID
 				m := message{feed: f, entity: p}
 				f.EntitiesCount++
 				s.DBOperation <- m
@@ -388,6 +393,7 @@ func (f *feed) syncProducts(s *session) error {
 			_, ok := f.Products[k]
 			if !ok {
 				p.DBAction = DBACTION_DELETE
+				p.SiteID = f.SiteID
 				m := message{feed: f, entity: p}
 				f.EntitiesCount++
 				s.DBOperation <- m

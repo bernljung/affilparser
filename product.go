@@ -9,7 +9,8 @@ import (
 
 type product struct {
 	ID                int
-	FeedID            int64
+	SiteID            int
+	FeedID            int
 	Name              string
 	NameByUser        string
 	Slug              string
@@ -37,6 +38,10 @@ func (p product) getName() string {
 	return p.Name
 }
 
+func (p product) setSiteID(siteID int) {
+
+}
+
 func (p product) getEntityType() string {
 	return "product"
 }
@@ -47,11 +52,12 @@ func (p product) getDBAction() int {
 
 func (p product) insert(s *session) error {
 	_, err := s.db.Exec(
-		"INSERT INTO products (name, slug, feed_id, identifier, description, "+
+		"INSERT INTO products (name, site_id, slug, feed_id, identifier, description, "+
 			"price, regular_price, currency, shipping_price, "+
 			"in_stock, url, graphic_url, keywords, created_at, updated_at) "+
-			"VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,now(),now())",
+			"VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,now(),now())",
 		p.Name,
+		p.SiteID,
 		p.Slug,
 		p.FeedID,
 		p.Identifier,
@@ -65,11 +71,11 @@ func (p product) insert(s *session) error {
 		p.GraphicURL,
 		p.Keywords,
 	)
-
 	return err
 }
 
 func (p product) update(s *session) error {
+	log.Println("Insert: ", p.getName())
 	_, err := s.db.Exec(
 		"UPDATE products SET name = ?, identifier = ?, description = ?, "+
 			"price = ?, regular_price = ?, currency = ?, shipping_price = ?,"+
@@ -102,7 +108,7 @@ func (p *product) resetCategories() {
 	p.Categories = []categoryinterface{}
 }
 
-func (p product) selectCategories(s *session) ([]categoryinterface, error) {
+func (p *product) selectCategories(s *session) ([]categoryinterface, error) {
 	if len(p.Categories) != 0 {
 		return p.Categories, nil
 	}
@@ -138,7 +144,7 @@ func (p product) selectCategories(s *session) ([]categoryinterface, error) {
 	return categoryproducts, err
 }
 
-func (p product) getOutdatedFeedCategories(s *session, f *feed) []categoryinterface {
+func (p *product) getOutdatedFeedCategories(s *session, f *feed) []categoryinterface {
 	outdatedCategories := []categoryinterface{}
 	for _, c := range p.Categories {
 		indexes := c.indexesOf(f.Products[p.Identifier].FeedCategories)
@@ -149,7 +155,7 @@ func (p product) getOutdatedFeedCategories(s *session, f *feed) []categoryinterf
 	return outdatedCategories
 }
 
-func (p product) getFeedCategories(s *session, f *feed) []categoryinterface {
+func (p *product) getFeedCategories(s *session, f *feed) []categoryinterface {
 	newCategories := []categoryinterface{}
 	for _, c := range f.Products[p.Identifier].FeedCategories {
 		for _, v := range s.categories {
@@ -162,7 +168,7 @@ func (p product) getFeedCategories(s *session, f *feed) []categoryinterface {
 	return newCategories
 }
 
-func (p product) getDuplicateCategories(s *session) []categoryinterface {
+func (p *product) getDuplicateCategories(s *session) []categoryinterface {
 	duplicateCategories := []categoryinterface{}
 	for _, c := range p.Categories {
 		indexes := c.indexesOf(p.Categories)
@@ -257,7 +263,7 @@ func (p *product) syncCategories(s *session, f *feed, update bool) error {
 	return err
 }
 
-func (p product) getKeywordCategories(s *session) []categoryinterface {
+func (p *product) getKeywordCategories(s *session) []categoryinterface {
 	keywordCategories := []categoryinterface{}
 	for _, c := range s.categories {
 		if c.getKeywords() != "" {
@@ -274,7 +280,7 @@ func (p product) getKeywordCategories(s *session) []categoryinterface {
 	return keywordCategories
 }
 
-func (p product) getNewKeywordCategories(s *session) []categoryinterface {
+func (p *product) getNewKeywordCategories(s *session) []categoryinterface {
 	keywordCategories := p.getKeywordCategories(s)
 	newKeywordCategories := []categoryinterface{}
 
@@ -289,7 +295,7 @@ func (p product) getNewKeywordCategories(s *session) []categoryinterface {
 	return newKeywordCategories
 }
 
-func (p product) attachCategory(s *session, c categoryinterface) error {
+func (p *product) attachCategory(s *session, c categoryinterface) error {
 	_, err := s.db.Exec(
 		"INSERT INTO category_product "+
 			"(category_id, product_id, created_by_id, created_at,"+
@@ -307,7 +313,7 @@ func (p product) attachCategory(s *session, c categoryinterface) error {
 	return err
 }
 
-func (p product) detachCategory(s *session, c categoryinterface) error {
+func (p *product) detachCategory(s *session, c categoryinterface) error {
 	_, err := s.db.Exec(
 		"DELETE FROM category_product "+
 			"WHERE id = ?", c.getID())
@@ -375,10 +381,12 @@ func (p *product) parse(i interface{}, f *feed) {
 		p.InStock = inStock
 	}
 
+	p.SiteID = f.SiteID
+	p.FeedID = f.ID
 	p.FeedCategories = p.parseCategories(i, f)
 }
 
-func (p product) validate(f *feed) bool {
+func (p *product) validate(f *feed) bool {
 	if f.AllowEmptyDescription == false {
 		if p.Description == "" {
 			return false
@@ -412,7 +420,7 @@ func (p *product) refresh() bool {
 	return false
 }
 
-func (p product) parseCategories(i interface{}, f *feed) []categoryinterface {
+func (p *product) parseCategories(i interface{}, f *feed) []categoryinterface {
 	switch v := i.(map[string]interface{})[f.CategoriesField].(type) {
 	case []interface{}:
 		return categoriesFromList(v, f)

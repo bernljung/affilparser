@@ -19,15 +19,17 @@ const CREATED_BY_FEED = 3
 
 type session struct {
 	db                        *sql.DB
+	selectSiteStmt            *sql.Stmt
 	selectFeedStmt            *sql.Stmt
 	insertProductStmt         *sql.Stmt
 	selectCategoryStmt        *sql.Stmt
 	insertCategoryStmt        *sql.Stmt
-	selectProductStmt         *sql.Stmt
+	selectFeedProductStmt     *sql.Stmt
 	deleteProductStmt         *sql.Stmt
 	selectCategoryProductStmt *sql.Stmt
 	insertCategoryProductStmt *sql.Stmt
 	deleteCategoryProductStmt *sql.Stmt
+	site                      *site
 	feeds                     []*feed
 	categories                []categoryinterface
 	DBOperation               chan message
@@ -35,17 +37,17 @@ type session struct {
 	FeedError                 chan feedmessage
 }
 
-func (s *session) init(dbString string) error {
+func (s *session) init(subdomain string) error {
 	var err error
 	// This does not really open a new connection.
 	s.db, err = sql.Open("mysql",
-		DSN+dbString)
+		DSN)
 	if err != nil {
 		log.Println("Error on initializing database connection: %s",
 			err.Error())
 	}
 
-	s.db.SetMaxOpenConns(50)
+	s.db.SetMaxOpenConns(1)
 
 	// This DOES open a connection if necessary.
 	// This makes sure the database is accessible.
@@ -54,23 +56,35 @@ func (s *session) init(dbString string) error {
 		log.Println("Error on opening database connection: %s",
 			err.Error())
 	} else {
+		s.prepareSelectSiteStmt()
 		s.prepareSelectFeedsStmt()
 		s.prepareSelectCategoryStmt()
-		s.prepareSelectProductStmt()
+		s.prepareSelectFeedProductStmt()
 		s.prepareSelectCategoryProductStmt()
 	}
 
+	s.selectSite(subdomain)
 	return err
+}
+
+func (s *session) prepareSelectSiteStmt() {
+	var err error
+	s.selectSiteStmt, err = s.db.Prepare(
+		"SELECT id, name, subdomain FROM sites WHERE subdomain = ?")
+	if err != nil {
+		log.Println(err)
+	}
 }
 
 func (s *session) prepareSelectFeedsStmt() {
 	var err error
 	s.selectFeedStmt, err = s.db.Prepare(
-		"SELECT id, name, url, products_field, name_field, identifier_field," +
+		"SELECT id, site_id, name, url, products_field, name_field, identifier_field," +
 			"description_field, price_field, producturl_field, " +
 			"regular_price_field, currency_field, shipping_price_field, " +
 			"in_stock_field, graphicurl_field, categories_field, " +
-			"sync_categories, allow_empty_description FROM feeds")
+			"sync_categories, allow_empty_description FROM feeds " +
+			"WHERE site_id = ?")
 	if err != nil {
 		log.Println(err)
 	}
@@ -79,16 +93,17 @@ func (s *session) prepareSelectFeedsStmt() {
 func (s *session) prepareSelectCategoryStmt() {
 	var err error
 	s.selectCategoryStmt, err = s.db.Prepare("SELECT id, name, " +
-		"keywords, description_by_user, created_by_id FROM categories")
+		"keywords, description_by_user, created_by_id FROM categories " +
+		"WHERE site_id = ?")
 	if err != nil {
 		log.Println(err)
 	}
 }
 
-func (s *session) prepareSelectProductStmt() {
+func (s *session) prepareSelectFeedProductStmt() {
 	var err error
-	s.selectProductStmt, err = s.db.Prepare(
-		"SELECT id, feed_id, name, name_by_user, identifier, price, " +
+	s.selectFeedProductStmt, err = s.db.Prepare(
+		"SELECT id, site_id, feed_id, name, name_by_user, identifier, price, " +
 			"regular_price, description, description_by_user, keywords, " +
 			"currency, url, graphic_url, " + "shipping_price, in_stock " +
 			"FROM products WHERE feed_id = ?")
@@ -112,7 +127,7 @@ func (s *session) prepareSelectCategoryProductStmt() {
 
 func (s *session) selectFeeds() error {
 	s.feeds = []*feed{}
-	rows, err := s.selectFeedStmt.Query()
+	rows, err := s.selectFeedStmt.Query(s.site.ID)
 	if err != nil {
 		log.Println(err)
 	}
@@ -122,6 +137,7 @@ func (s *session) selectFeeds() error {
 		f := &feed{}
 		err = rows.Scan(
 			&f.ID,
+			&f.SiteID,
 			&f.Name,
 			&f.URL,
 			&f.ProductsField,
@@ -231,7 +247,7 @@ func (s *session) worker() {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					message.entity.insert(s)
+					err = message.entity.insert(s)
 					if err != nil {
 						log.Println(err)
 						message.feed.DBOperationError <- err
@@ -247,7 +263,7 @@ func (s *session) worker() {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					message.entity.update(s)
+					err = message.entity.update(s)
 					if err != nil {
 						log.Println(err)
 						message.feed.DBOperationError <- err
@@ -306,13 +322,39 @@ func (s *session) resetCategories() {
 	s.categories = []categoryinterface{}
 }
 
+func (s *session) selectSite(subdomain string) (site, error) {
+	var si site
+	rows, err := s.selectSiteStmt.Query(subdomain)
+	if err != nil {
+		log.Println(err)
+		return si, err
+	}
+
+	defer rows.Close()
+	for rows.Next() {
+		si = site{}
+		err := rows.Scan(&si.ID, &si.Name, &si.Subdomain)
+		if err != nil {
+			log.Println(err)
+		}
+	}
+
+	err = rows.Err()
+	if err != nil {
+		log.Println(err)
+	}
+
+	s.site = &si
+	return si, err
+}
+
 func (s *session) selectCategories() ([]categoryinterface, error) {
 	if len(s.categories) > 0 {
 		return s.categories, nil
 	}
 
 	categories := []categoryinterface{}
-	rows, err := s.selectCategoryStmt.Query()
+	rows, err := s.selectCategoryStmt.Query(s.site.ID)
 	if err != nil {
 		log.Println(err)
 		return categories, err

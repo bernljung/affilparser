@@ -6,6 +6,7 @@ type categoryinterface interface {
 	setName(string)
 	getCategoryID() int
 	setCategoryID(int)
+	setSiteID(int)
 	getID() int
 	getKeywords() string
 	getEntityType() string
@@ -24,6 +25,7 @@ type categoryinterface interface {
 type category struct {
 	ID                int
 	Name              string
+	SiteID            int
 	Keywords          string
 	DescriptionByUser string
 	CreatedByID       int
@@ -40,6 +42,10 @@ func (c category) getEntityType() string {
 
 func (c *category) setName(name string) {
 	c.Name = name
+}
+
+func (c *category) setSiteID(siteID int) {
+	c.SiteID = siteID
 }
 
 func (c *category) getDescriptionByUser() string {
@@ -90,9 +96,10 @@ func (c *category) indexesOf(slice []categoryinterface) []int {
 
 func (c *category) insert(s *session) error {
 	_, err := s.db.Exec(
-		"INSERT INTO categories (name, created_by_id, created_at, updated_at) "+
-			"VALUES (?,?,now(),now())",
+		"INSERT INTO categories (name, site_id, created_by_id, created_at, updated_at) "+
+			"VALUES (?,?,?,now(),now())",
 		c.Name,
+		c.SiteID,
 		CREATED_BY_FEED,
 	)
 	return err
@@ -140,6 +147,10 @@ func (c *categoryproduct) getName() string {
 
 func (c *categoryproduct) setName(name string) {
 	c.Name = name
+}
+
+func (c *categoryproduct) setSiteID(siteID int) {
+
 }
 
 func (c *categoryproduct) getKeywords() string {

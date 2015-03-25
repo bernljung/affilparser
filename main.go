@@ -10,13 +10,13 @@ import (
 )
 
 var addr = flag.String("addr", ":8080", "http service address")
-var DSN = "homestead:secret@tcp(localhost:33060)/"
+var DSN = "homestead:secret@tcp(localhost:33060)/fashionstore"
 
 func getSession(req *http.Request) (session, Response) {
 	var s session
 	var resp Response
-	dbString := req.FormValue("database")
-	err := s.init(dbString)
+	site := req.FormValue("site")
+	err := s.init(site)
 	if err != nil {
 		resp = Response{Success: false, Message: err.Error()}
 	} else {
