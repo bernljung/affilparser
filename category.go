@@ -3,7 +3,6 @@ package main
 type categoryinterface interface {
 	indexesOf([]categoryinterface) []int
 	getName() string
-	setName(string)
 	getCategoryID() int
 	setCategoryID(int)
 	setSiteID(int)
@@ -24,7 +23,9 @@ type categoryinterface interface {
 
 type category struct {
 	ID                int
+	ParentID          int
 	Name              string
+	Slug              string
 	SiteID            int
 	Keywords          string
 	DescriptionByUser string
@@ -38,10 +39,6 @@ func (c *category) getName() string {
 
 func (c category) getEntityType() string {
 	return "category"
-}
-
-func (c *category) setName(name string) {
-	c.Name = name
 }
 
 func (c *category) setSiteID(siteID int) {
@@ -96,9 +93,10 @@ func (c *category) indexesOf(slice []categoryinterface) []int {
 
 func (c *category) insert(s *session) error {
 	_, err := s.db.Exec(
-		"INSERT INTO categories (name, site_id, created_by_id, created_at, updated_at) "+
-			"VALUES (?,?,?,now(),now())",
+		"INSERT INTO categories (name, slug, site_id, created_by_id, created_at, updated_at) "+
+			"VALUES (?,?,?,?,now(),now())",
 		c.Name,
+		c.Slug,
 		c.SiteID,
 		CREATED_BY_FEED,
 	)
@@ -143,10 +141,6 @@ type categoryproduct struct {
 
 func (c *categoryproduct) getName() string {
 	return c.Name
-}
-
-func (c *categoryproduct) setName(name string) {
-	c.Name = name
 }
 
 func (c *categoryproduct) setSiteID(siteID int) {

@@ -79,12 +79,15 @@ func (s *session) prepareSelectSiteStmt() {
 func (s *session) prepareSelectFeedsStmt() {
 	var err error
 	s.selectFeedStmt, err = s.db.Prepare(
-		"SELECT id, site_id, name, url, products_field, name_field, identifier_field," +
-			"description_field, price_field, producturl_field, " +
-			"regular_price_field, currency_field, shipping_price_field, " +
-			"in_stock_field, graphicurl_field, categories_field, " +
-			"sync_categories, allow_empty_description FROM feeds " +
-			"WHERE site_id = ?")
+		"SELECT f.id, f.site_id, f.name, f.url, n.products_field, " +
+			"n.name_field, n.identifier_field, n.description_field, n.price_field, " +
+			"n.producturl_field, n.regular_price_field, n.currency_field, " +
+			"n.shipping_price_field, n.in_stock_field, n.graphicurl_field, " +
+			"n.categories_field, f.sync_categories, f.allow_empty_description " +
+			"FROM feeds as f " +
+			"INNER JOIN networks as n " +
+			"ON f.`network_id` = n.`id` " +
+			"WHERE f.site_id = ?")
 	if err != nil {
 		log.Println(err)
 	}
@@ -92,7 +95,7 @@ func (s *session) prepareSelectFeedsStmt() {
 
 func (s *session) prepareSelectCategoryStmt() {
 	var err error
-	s.selectCategoryStmt, err = s.db.Prepare("SELECT id, name, " +
+	s.selectCategoryStmt, err = s.db.Prepare("SELECT id, name, slug, " +
 		"keywords, description_by_user, created_by_id FROM categories " +
 		"WHERE site_id = ?")
 	if err != nil {
@@ -363,7 +366,7 @@ func (s *session) selectCategories() ([]categoryinterface, error) {
 	defer rows.Close()
 	for rows.Next() {
 		c := category{}
-		err := rows.Scan(&c.ID, &c.Name, &c.Keywords, &c.DescriptionByUser,
+		err := rows.Scan(&c.ID, &c.Name, &c.Slug, &c.Keywords, &c.DescriptionByUser,
 			&c.CreatedByID)
 		if err != nil {
 			log.Println(err)

@@ -435,7 +435,7 @@ func categoriesFromList(list []interface{}, f *feed) []categoryinterface {
 	if len(list) > 0 {
 		categories := make([]categoryinterface, len(list))
 		for i, v := range list {
-			c := &category{Name: v.(string)}
+			c := &category{Name: v.(string), Slug: generateSlug(v.(string))}
 			categories[i] = c
 			f.Categories = c.appendIfMissing(f.Categories)
 		}
@@ -447,7 +447,7 @@ func categoriesFromList(list []interface{}, f *feed) []categoryinterface {
 // parseCategoriesFromString creates a string array from string.
 // Appends to feed categories if not included already
 func categoriesFromString(s string, f *feed) []categoryinterface {
-	c := &category{Name: s}
+	c := &category{Name: s, Slug: generateSlug(s)}
 	categories := make([]categoryinterface, 1)
 	categories[0] = c
 	f.Categories = c.appendIfMissing(f.Categories)
