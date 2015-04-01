@@ -41,7 +41,7 @@ func (s *session) init(subdomain string) error {
 	var err error
 	// This does not really open a new connection.
 	s.db, err = sql.Open("mysql",
-		DSN)
+		fmt.Sprintf("%v", DSN))
 	if err != nil {
 		log.Println("Error on initializing database connection: %s",
 			err.Error())
