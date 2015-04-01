@@ -81,6 +81,7 @@ func (c *category) setCategoryID(id int) {
 	c.ID = id
 }
 
+// TODO, jämför lowercase
 func (c *category) indexesOf(slice []categoryinterface) []int {
 	indexes := []int{}
 	for i, ele := range slice {
@@ -91,6 +92,7 @@ func (c *category) indexesOf(slice []categoryinterface) []int {
 	return indexes
 }
 
+// TODO, Capitalize name
 func (c *category) insert(s *session) error {
 	_, err := s.db.Exec(
 		"INSERT INTO categories (name, slug, site_id, created_by_id, created_at, updated_at) "+

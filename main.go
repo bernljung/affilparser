@@ -10,7 +10,7 @@ import (
 )
 
 var addr = flag.String("addr", ":8080", "http service address")
-var DSN = "homestead:secret@tcp(localhost:33060)/fashionstore"
+var DSN = flag.String("dsn", "", "username:password@tcp(address:port)/database")
 
 func getSession(req *http.Request) (session, Response) {
 	var s session
