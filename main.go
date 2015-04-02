@@ -10,7 +10,11 @@ import (
 )
 
 var addr = flag.String("addr", ":8080", "http service address")
-var DSN = flag.String("dsn", ":8080", "username:password@tcp(address:port)/database")
+var dbUser = flag.String("dbUser", "user", "database username")
+var dbPassword = flag.String("dbPassword", "password", "database password")
+var dbAddr = flag.String("dbAddr", "localhost", "database address")
+var dbPort = flag.Int("dbPort", 3306, "database port")
+var database = flag.String("database", "database", "database name")
 
 func getSession(req *http.Request) (session, Response) {
 	var s session
@@ -67,7 +71,6 @@ func refreshHandler(rw http.ResponseWriter, req *http.Request) {
 func main() {
 	flag.Parse()
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
-	log.Println(fmt.Sprintf("Starting server on %v", *DSN))
 
 	http.HandleFunc("/updatefeeds", updateFeedsHandler)
 	http.HandleFunc("/refresh", refreshHandler)

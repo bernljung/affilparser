@@ -104,7 +104,6 @@ func (f *feed) fetch() error {
 	return nil
 }
 
-// parse extracts product structs and categories strings from a feed
 func (f *feed) parse() error {
 	var err error
 	var jsonData map[string]interface{}
@@ -182,7 +181,7 @@ func (f *feed) syncDB(s *session) error {
 	if f.SyncCategories {
 		err = f.syncCategories(s)
 	} else {
-		err = f.deleteFeedCategories(s)
+		err = f.safeDeleteFeedCategories(s)
 	}
 
 	if err != nil {
@@ -198,7 +197,7 @@ func (f *feed) syncDB(s *session) error {
 	return nil
 }
 
-func (f *feed) deleteFeedCategories(s *session) error {
+func (f *feed) safeDeleteFeedCategories(s *session) error {
 	dbCategories, err := s.selectCategories()
 
 	if err != nil {
@@ -216,7 +215,19 @@ func (f *feed) deleteFeedCategories(s *session) error {
 				descriptionByUser := category.getDescriptionByUser()
 				keywords := category.getKeywords()
 				if createdByID == CREATED_BY_FEED && descriptionByUser == "" && keywords == "" {
-					categoriesToDelete = append(categoriesToDelete, category)
+					products, err := category.selectProducts(s)
+					if err == nil {
+						productsFromOtherFeeds := false
+						for _, p := range products {
+							if p.FeedID != f.ID {
+								log.Println("productsFromOtherFeeds = true" + category.getName())
+								productsFromOtherFeeds = true
+							}
+						}
+						if productsFromOtherFeeds == false {
+							categoriesToDelete = append(categoriesToDelete, category)
+						}
+					}
 				}
 			}
 		}
@@ -385,6 +396,8 @@ func (f *feed) syncProducts(s *session) error {
 				m := message{feed: f, entity: p}
 				f.EntitiesCount++
 				s.DBOperation <- m
+			} else {
+				log.Println("No action for " + p.Name)
 			}
 		}
 

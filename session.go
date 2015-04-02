@@ -18,30 +18,33 @@ const CREATED_BY_KEYWORD = 2
 const CREATED_BY_FEED = 3
 
 type session struct {
-	db                        *sql.DB
-	selectSiteStmt            *sql.Stmt
-	selectFeedStmt            *sql.Stmt
-	insertProductStmt         *sql.Stmt
-	selectCategoryStmt        *sql.Stmt
-	insertCategoryStmt        *sql.Stmt
-	selectFeedProductStmt     *sql.Stmt
-	deleteProductStmt         *sql.Stmt
-	selectCategoryProductStmt *sql.Stmt
-	insertCategoryProductStmt *sql.Stmt
-	deleteCategoryProductStmt *sql.Stmt
-	site                      *site
-	feeds                     []*feed
-	categories                []categoryinterface
-	DBOperation               chan message
-	FeedDone                  chan feedmessage
-	FeedError                 chan feedmessage
+	db                                           *sql.DB
+	selectSiteStmt                               *sql.Stmt
+	selectFeedStmt                               *sql.Stmt
+	insertProductStmt                            *sql.Stmt
+	selectDefaultCategoryStmt                    *sql.Stmt
+	selectCategoryStmt                           *sql.Stmt
+	insertCategoryStmt                           *sql.Stmt
+	selectFeedProductStmt                        *sql.Stmt
+	deleteProductStmt                            *sql.Stmt
+	selectCategoryProductStmt                    *sql.Stmt
+	selectCategoryProductByCategoryIDStmt        *sql.Stmt
+	selectCategoryProductByCategoryProductIDStmt *sql.Stmt
+	insertCategoryProductStmt                    *sql.Stmt
+	deleteCategoryProductStmt                    *sql.Stmt
+	site                                         *site
+	feeds                                        []*feed
+	categories                                   []categoryinterface
+	DBOperation                                  chan message
+	FeedDone                                     chan feedmessage
+	FeedError                                    chan feedmessage
 }
 
 func (s *session) init(subdomain string) error {
 	var err error
 	// This does not really open a new connection.
-	s.db, err = sql.Open("mysql",
-		fmt.Sprintf("%v", *DSN))
+	var DSN = fmt.Sprintf("%v:%v@tcp(%v:%v)/%v", *dbUser, *dbPassword, *dbAddr, *dbPort, *database)
+	s.db, err = sql.Open("mysql", DSN)
 	if err != nil {
 		log.Println("Error on initializing database connection: %s",
 			err.Error())
@@ -59,8 +62,11 @@ func (s *session) init(subdomain string) error {
 		s.prepareSelectSiteStmt()
 		s.prepareSelectFeedsStmt()
 		s.prepareSelectCategoryStmt()
+		s.prepareSelectDefaultCategoryStmt()
 		s.prepareSelectFeedProductStmt()
 		s.prepareSelectCategoryProductStmt()
+		s.prepareSelectCategoryProductByCategoryIDStmt()
+		s.prepareSelectCategoryProductByCategoryProductIDStmt()
 	}
 
 	s.selectSite(subdomain)
@@ -71,6 +77,17 @@ func (s *session) prepareSelectSiteStmt() {
 	var err error
 	s.selectSiteStmt, err = s.db.Prepare(
 		"SELECT id, name, subdomain FROM sites WHERE subdomain = ?")
+	if err != nil {
+		log.Println(err)
+	}
+}
+
+func (s *session) prepareSelectDefaultCategoryStmt() {
+	var err error
+	s.selectDefaultCategoryStmt, err = s.db.Prepare(
+		"SELECT id, name, slug, " +
+			"keywords, description_by_user, created_by_id FROM categories " +
+			"WHERE site_id = ? AND is_default = 1")
 	if err != nil {
 		log.Println(err)
 	}
@@ -110,6 +127,36 @@ func (s *session) prepareSelectFeedProductStmt() {
 			"regular_price, description, description_by_user, keywords, " +
 			"currency, url, graphic_url, " + "shipping_price, in_stock " +
 			"FROM products WHERE feed_id = ?")
+	if err != nil {
+		log.Println(err)
+	}
+}
+
+func (s *session) prepareSelectCategoryProductByCategoryIDStmt() {
+	var err error
+	s.selectCategoryProductByCategoryIDStmt, err = s.db.Prepare(
+		"SELECT p.id, p.site_id, p.feed_id, p.name, p.name_by_user, p.identifier, p.price, " +
+			"p.regular_price, p.description, p.description_by_user, p.keywords, " +
+			"p.currency, p.url, p.graphic_url, p.shipping_price, p.in_stock " +
+			"FROM products p " +
+			"INNER JOIN category_product cp " +
+			"ON p.id = cp.product_id " +
+			"WHERE cp.category_id = ?")
+	if err != nil {
+		log.Println(err)
+	}
+}
+
+func (s *session) prepareSelectCategoryProductByCategoryProductIDStmt() {
+	var err error
+	s.selectCategoryProductByCategoryProductIDStmt, err = s.db.Prepare(
+		"SELECT p.id, p.site_id, p.feed_id, p.name, p.name_by_user, p.identifier, p.price, " +
+			"p.regular_price, p.description, p.description_by_user, p.keywords, " +
+			"p.currency, p.url, p.graphic_url, p.shipping_price, p.in_stock " +
+			"FROM products p " +
+			"INNER JOIN category_product cp " +
+			"ON p.id = cp.product_id " +
+			"WHERE cp.id = ?")
 	if err != nil {
 		log.Println(err)
 	}
@@ -323,6 +370,32 @@ func (s *session) cleanCategories() {
 
 func (s *session) resetCategories() {
 	s.categories = []categoryinterface{}
+}
+
+func (s *session) selectDefaultCategory() (categoryinterface, error) {
+	var c category
+	rows, err := s.selectDefaultCategoryStmt.Query(s.site.ID)
+	if err != nil {
+		log.Println(err)
+		return &c, err
+	}
+
+	defer rows.Close()
+	for rows.Next() {
+		c = category{}
+		err := rows.Scan(&c.ID, &c.Name, &c.Slug, &c.Keywords, &c.DescriptionByUser,
+			&c.CreatedByID)
+		if err != nil {
+			log.Println(err)
+		}
+	}
+
+	err = rows.Err()
+	if err != nil {
+		log.Println(err)
+	}
+
+	return &c, err
 }
 
 func (s *session) selectSite(subdomain string) (site, error) {

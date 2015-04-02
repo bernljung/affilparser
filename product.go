@@ -254,10 +254,23 @@ func (p *product) syncCategories(s *session, f *feed, update bool) error {
 		log.Println(err)
 		return err
 	}
-	duplicateCategories := p.getDuplicateCategories(s)
 
-	for _, c := range duplicateCategories {
-		p.detachCategory(s, c)
+	if len(p.Categories) == 0 {
+		p.attachDefaultCategory(s)
+	} else {
+		if len(p.Categories) > 1 {
+			c, err := s.selectDefaultCategory()
+			if err == nil {
+				if len(c.indexesOf(p.Categories)) > 0 {
+					p.detachDefaultCategory(s)
+				}
+			}
+		}
+		duplicateCategories := p.getDuplicateCategories(s)
+
+		for _, c := range duplicateCategories {
+			p.detachCategory(s, c)
+		}
 	}
 
 	return err
@@ -293,6 +306,50 @@ func (p *product) getNewKeywordCategories(s *session) []categoryinterface {
 	}
 
 	return newKeywordCategories
+}
+
+func (p *product) attachDefaultCategory(s *session) error {
+	c, err := s.selectDefaultCategory()
+	if err != nil {
+		return err
+	}
+
+	_, err = s.db.Exec(
+		"INSERT INTO category_product "+
+			"(category_id, product_id, created_by_id, created_at,"+
+			" updated_at) VALUES (?,?,?,now(),now())",
+		c.getCategoryID(),
+		p.ID,
+		c.getCreatedByID(),
+	)
+	if err != nil {
+		log.Println("Could not attach default category "+c.getName()+" to: "+p.Name, err)
+	} else {
+		log.Println("Attached default category " + c.getName() + " to: " + p.Name)
+	}
+
+	return err
+}
+
+func (p *product) detachDefaultCategory(s *session) error {
+	c, err := s.selectDefaultCategory()
+	if err != nil {
+		return err
+	}
+
+	_, err = s.db.Exec(
+		"DELETE FROM category_product "+
+			"WHERE category_id = ? AND product_id = ?",
+		c.getCategoryID(),
+		p.ID,
+	)
+	if err != nil {
+		log.Println("Could not detach default category "+c.getName()+" to: "+p.Name, err)
+	} else {
+		log.Println("Detached default category " + c.getName() + " to: " + p.Name)
+	}
+
+	return err
 }
 
 func (p *product) attachCategory(s *session, c categoryinterface) error {
@@ -435,7 +492,9 @@ func categoriesFromList(list []interface{}, f *feed) []categoryinterface {
 	if len(list) > 0 {
 		categories := make([]categoryinterface, len(list))
 		for i, v := range list {
-			c := &category{Name: v.(string), Slug: generateSlug(v.(string))}
+			name := strings.Title(strings.ToLower(v.(string)))
+			slug := generateSlug(v.(string))
+			c := &category{Name: name, Slug: slug}
 			categories[i] = c
 			f.Categories = c.appendIfMissing(f.Categories)
 		}
@@ -447,7 +506,9 @@ func categoriesFromList(list []interface{}, f *feed) []categoryinterface {
 // parseCategoriesFromString creates a string array from string.
 // Appends to feed categories if not included already
 func categoriesFromString(s string, f *feed) []categoryinterface {
-	c := &category{Name: s, Slug: generateSlug(s)}
+	name := strings.Title(strings.ToLower(s))
+	slug := generateSlug(s)
+	c := &category{Name: name, Slug: slug}
 	categories := make([]categoryinterface, 1)
 	categories[0] = c
 	f.Categories = c.appendIfMissing(f.Categories)

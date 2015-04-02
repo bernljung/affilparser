@@ -1,5 +1,10 @@
 package main
 
+import (
+	"log"
+	"strings"
+)
+
 type categoryinterface interface {
 	indexesOf([]categoryinterface) []int
 	getName() string
@@ -16,6 +21,7 @@ type categoryinterface interface {
 	getCreatedByID() int
 	setCreatedByID(int)
 	getDescriptionByUser() string
+	selectProducts(s *session) ([]product, error)
 	insert(s *session) error
 	update(s *session) error
 	delete(s *session) error
@@ -81,18 +87,58 @@ func (c *category) setCategoryID(id int) {
 	c.ID = id
 }
 
-// TODO, jämför lowercase
 func (c *category) indexesOf(slice []categoryinterface) []int {
 	indexes := []int{}
 	for i, ele := range slice {
-		if ele.getName() == c.getName() {
+		if strings.ToLower(ele.getName()) == strings.ToLower(c.getName()) {
 			indexes = append(indexes, i)
 		}
 	}
 	return indexes
 }
 
-// TODO, Capitalize name
+func (c *category) selectProducts(s *session) ([]product, error) {
+	var products []product
+	rows, err := s.selectCategoryProductByCategoryIDStmt.Query(c.ID)
+
+	if err != nil {
+		log.Println(err)
+		return products, err
+	}
+
+	defer rows.Close()
+	for rows.Next() {
+		p := product{}
+		err := rows.Scan(
+			&p.ID,
+			&p.SiteID,
+			&p.FeedID,
+			&p.Name,
+			&p.NameByUser,
+			&p.Identifier,
+			&p.Price,
+			&p.RegularPrice,
+			&p.Description,
+			&p.DescriptionByUser,
+			&p.Keywords,
+			&p.Currency,
+			&p.ProductURL,
+			&p.GraphicURL,
+			&p.ShippingPrice,
+			&p.InStock,
+		)
+		if err != nil {
+			log.Println(err)
+			return products, err
+		} else {
+			products = append(products, p)
+		}
+	}
+
+	err = rows.Err()
+	return products, err
+}
+
 func (c *category) insert(s *session) error {
 	_, err := s.db.Exec(
 		"INSERT INTO categories (name, slug, site_id, created_by_id, created_at, updated_at) "+
@@ -185,10 +231,53 @@ func (c *categoryproduct) setCategoryID(id int) {
 	c.CategoryID = id
 }
 
+func (c *categoryproduct) selectProducts(s *session) ([]product, error) {
+
+	var products []product
+	rows, err := s.selectCategoryProductByCategoryProductIDStmt.Query(c.ID)
+
+	if err != nil {
+		log.Println(err)
+		return products, err
+	}
+
+	defer rows.Close()
+	for rows.Next() {
+		p := product{}
+		err := rows.Scan(
+			&p.ID,
+			&p.SiteID,
+			&p.FeedID,
+			&p.Name,
+			&p.NameByUser,
+			&p.Identifier,
+			&p.Price,
+			&p.RegularPrice,
+			&p.Description,
+			&p.DescriptionByUser,
+			&p.Keywords,
+			&p.Currency,
+			&p.ProductURL,
+			&p.GraphicURL,
+			&p.ShippingPrice,
+			&p.InStock,
+		)
+		if err != nil {
+			log.Println(err)
+			return products, err
+		} else {
+			products = append(products, p)
+		}
+	}
+
+	err = rows.Err()
+	return products, err
+}
+
 func (c *categoryproduct) indexesOf(slice []categoryinterface) []int {
 	indexes := []int{}
 	for i, ele := range slice {
-		if ele.getName() == c.getName() {
+		if strings.ToLower(ele.getName()) == strings.ToLower(c.getName()) {
 			indexes = append(indexes, i)
 		}
 	}
