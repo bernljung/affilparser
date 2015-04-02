@@ -67,6 +67,7 @@ func refreshHandler(rw http.ResponseWriter, req *http.Request) {
 func main() {
 	flag.Parse()
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
+	log.Println(fmt.Sprintf("Starting server on %v", *DSN))
 
 	http.HandleFunc("/updatefeeds", updateFeedsHandler)
 	http.HandleFunc("/refresh", refreshHandler)
