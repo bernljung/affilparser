@@ -47,8 +47,11 @@ func updateFeedsHandler(rw http.ResponseWriter, req *http.Request) {
 		s, resp := getSession(req)
 
 		fmt.Fprint(rw, resp)
-		s.prepare()
-		go s.update()
+
+		if len(s.feeds) > 0 {
+			s.prepare()
+			go s.update()
+		}
 
 	} else {
 		http.NotFound(rw, req)

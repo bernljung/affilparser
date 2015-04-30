@@ -13,31 +13,30 @@ const DBACTION_UPDATE = 2
 const DBACTION_DELETE = 3
 const DBACTION_NOTHING = 4
 
-const CREATED_BY_USER = 1
-const CREATED_BY_KEYWORD = 2
-const CREATED_BY_FEED = 3
-
 type session struct {
-	db                                           *sql.DB
-	selectSiteStmt                               *sql.Stmt
-	selectFeedStmt                               *sql.Stmt
-	insertProductStmt                            *sql.Stmt
-	selectDefaultCategoryStmt                    *sql.Stmt
-	selectCategoryStmt                           *sql.Stmt
-	insertCategoryStmt                           *sql.Stmt
-	selectFeedProductStmt                        *sql.Stmt
-	deleteProductStmt                            *sql.Stmt
-	selectCategoryProductStmt                    *sql.Stmt
-	selectCategoryProductByCategoryIDStmt        *sql.Stmt
-	selectCategoryProductByCategoryProductIDStmt *sql.Stmt
-	insertCategoryProductStmt                    *sql.Stmt
-	deleteCategoryProductStmt                    *sql.Stmt
-	site                                         *site
-	feeds                                        []*feed
-	categories                                   []categoryinterface
-	DBOperation                                  chan message
-	FeedDone                                     chan feedmessage
-	FeedError                                    chan feedmessage
+	db                                                *sql.DB
+	selectSiteStmt                                    *sql.Stmt
+	selectFeedStmt                                    *sql.Stmt
+	insertProductStmt                                 *sql.Stmt
+	selectCategoryStmt                                *sql.Stmt
+	insertCategoryStmt                                *sql.Stmt
+	selectFeedProductStmt                             *sql.Stmt
+	selectFeedNetworkStmt                             *sql.Stmt
+	deleteProductStmt                                 *sql.Stmt
+	selectCategoryProductStmt                         *sql.Stmt
+	selectCategoryProductsByCategoryIDStmt            *sql.Stmt
+	selectCategoryProductByProductIDAndCategoryIDStmt *sql.Stmt
+	selectCategoryProductByCategoryProductIDStmt      *sql.Stmt
+	selectCategoryCountByProductIDStmt                *sql.Stmt
+	insertCategoryProductStmt                         *sql.Stmt
+	searchCategoryProductsStmt                        *sql.Stmt
+	deleteCategoryProductStmt                         *sql.Stmt
+	site                                              *site
+	feeds                                             []*feed
+	categories                                        []categoryinterface
+	DBOperation                                       chan message
+	FeedDone                                          chan feedmessage
+	FeedError                                         chan feedmessage
 }
 
 func (s *session) init(subdomain string) error {
@@ -62,10 +61,13 @@ func (s *session) init(subdomain string) error {
 		s.prepareSelectSiteStmt()
 		s.prepareSelectFeedsStmt()
 		s.prepareSelectCategoryStmt()
-		s.prepareSelectDefaultCategoryStmt()
+		s.prepareSearchCategoryProductsStmt()
 		s.prepareSelectFeedProductStmt()
+		s.prepareSelectFeedNetworkStmt()
 		s.prepareSelectCategoryProductStmt()
-		s.prepareSelectCategoryProductByCategoryIDStmt()
+		s.prepareSelectCategoryCountByProductIDStmt()
+		s.prepareSelectCategoryProductByProductIDAndCategoryIDStmt()
+		s.prepareSelectCategoryProductsByCategoryIDStmt()
 		s.prepareSelectCategoryProductByCategoryProductIDStmt()
 	}
 
@@ -82,28 +84,12 @@ func (s *session) prepareSelectSiteStmt() {
 	}
 }
 
-func (s *session) prepareSelectDefaultCategoryStmt() {
-	var err error
-	s.selectDefaultCategoryStmt, err = s.db.Prepare(
-		"SELECT id, name, slug, " +
-			"keywords, description_by_user, created_by_id FROM categories " +
-			"WHERE site_id = ? AND is_default = 1")
-	if err != nil {
-		log.Println(err)
-	}
-}
-
 func (s *session) prepareSelectFeedsStmt() {
 	var err error
 	s.selectFeedStmt, err = s.db.Prepare(
-		"SELECT f.id, f.site_id, f.name, f.url, n.products_field, " +
-			"n.name_field, n.identifier_field, n.description_field, n.price_field, " +
-			"n.producturl_field, n.regular_price_field, n.currency_field, " +
-			"n.shipping_price_field, n.in_stock_field, n.graphicurl_field, " +
-			"n.categories_field, f.sync_categories, f.allow_empty_description " +
+		"SELECT f.id, f.site_id, f.name, f.url, f.network_id, " +
+			"f.allow_empty_description " +
 			"FROM feeds as f " +
-			"INNER JOIN networks as n " +
-			"ON f.`network_id` = n.`id` " +
 			"WHERE f.site_id = ?")
 	if err != nil {
 		log.Println(err)
@@ -113,8 +99,28 @@ func (s *session) prepareSelectFeedsStmt() {
 func (s *session) prepareSelectCategoryStmt() {
 	var err error
 	s.selectCategoryStmt, err = s.db.Prepare("SELECT id, name, slug, " +
-		"keywords, description_by_user, created_by_id FROM categories " +
+		"search, description FROM categories " +
 		"WHERE site_id = ?")
+	if err != nil {
+		log.Println(err)
+	}
+}
+
+func (s *session) prepareSelectCategoryCountByProductIDStmt() {
+	var err error
+	s.selectCategoryCountByProductIDStmt, err = s.db.Prepare("SELECT COUNT(*) " +
+		"FROM category_product " +
+		"WHERE product_id = ?")
+	if err != nil {
+		log.Println(err)
+	}
+}
+
+func (s *session) prepareSearchCategoryProductsStmt() {
+	var err error
+	s.searchCategoryProductsStmt, err = s.db.Prepare("SELECT * FROM products " +
+		" WHERE MATCH(`name`,name_by_user,description,description_by_user) " +
+		"AGAINST (? IN BOOLEAN MODE)")
 	if err != nil {
 		log.Println(err)
 	}
@@ -124,20 +130,32 @@ func (s *session) prepareSelectFeedProductStmt() {
 	var err error
 	s.selectFeedProductStmt, err = s.db.Prepare(
 		"SELECT id, site_id, feed_id, name, name_by_user, identifier, price, " +
-			"regular_price, description, description_by_user, keywords, " +
-			"currency, url, graphic_url, " + "shipping_price, in_stock " +
+			"regular_price, description, description_by_user, " +
+			"currency, url, graphic_url, " + "shipping_price, in_stock, " +
+			"points, has_categories, active " +
 			"FROM products WHERE feed_id = ?")
 	if err != nil {
 		log.Println(err)
 	}
 }
 
-func (s *session) prepareSelectCategoryProductByCategoryIDStmt() {
+func (s *session) prepareSelectFeedNetworkStmt() {
 	var err error
-	s.selectCategoryProductByCategoryIDStmt, err = s.db.Prepare(
-		"SELECT p.id, p.site_id, p.feed_id, p.name, p.name_by_user, p.identifier, p.price, " +
-			"p.regular_price, p.description, p.description_by_user, p.keywords, " +
-			"p.currency, p.url, p.graphic_url, p.shipping_price, p.in_stock " +
+	s.selectFeedNetworkStmt, err = s.db.Prepare(
+		"SELECT id, name FROM networks WHERE id = ? LIMIT 1")
+	if err != nil {
+		log.Println(err)
+	}
+}
+
+func (s *session) prepareSelectCategoryProductsByCategoryIDStmt() {
+	var err error
+	s.selectCategoryProductsByCategoryIDStmt, err = s.db.Prepare(
+		"SELECT cp.id, p.site_id, p.feed_id, p.name, p.name_by_user, p.identifier, p.price, " +
+			"p.regular_price, p.description, p.description_by_user, " +
+			"p.currency, p.url, p.graphic_url, p.shipping_price, p.in_stock, " +
+			"p.points, p.has_categories, p.active, " +
+			"cp.category_id, cp.product_id, cp.forced " +
 			"FROM products p " +
 			"INNER JOIN category_product cp " +
 			"ON p.id = cp.product_id " +
@@ -150,9 +168,11 @@ func (s *session) prepareSelectCategoryProductByCategoryIDStmt() {
 func (s *session) prepareSelectCategoryProductByCategoryProductIDStmt() {
 	var err error
 	s.selectCategoryProductByCategoryProductIDStmt, err = s.db.Prepare(
-		"SELECT p.id, p.site_id, p.feed_id, p.name, p.name_by_user, p.identifier, p.price, " +
-			"p.regular_price, p.description, p.description_by_user, p.keywords, " +
-			"p.currency, p.url, p.graphic_url, p.shipping_price, p.in_stock " +
+		"SELECT cp.id, p.site_id, p.feed_id, p.name, p.name_by_user, p.identifier, p.price, " +
+			"p.regular_price, p.description, p.description_by_user, " +
+			"p.currency, p.url, p.graphic_url, p.shipping_price, p.in_stock, " +
+			"p.points, p.has_categories, p.active, " +
+			"cp.category_id, cp.product_id, cp.forced " +
 			"FROM products p " +
 			"INNER JOIN category_product cp " +
 			"ON p.id = cp.product_id " +
@@ -165,11 +185,28 @@ func (s *session) prepareSelectCategoryProductByCategoryProductIDStmt() {
 func (s *session) prepareSelectCategoryProductStmt() {
 	var err error
 	s.selectCategoryProductStmt, err = s.db.Prepare(
-		"SELECT cp.id, c.name, c.keywords, c.description_by_user, " +
-			"cp.category_id, cp.created_by_id " +
+		"SELECT cp.id, c.name, c.search, c.description, " +
+			"cp.category_id, cp.forced " +
 			"FROM categories c INNER JOIN category_product AS cp " +
 			"ON c.`id` = cp.`category_id` " +
 			"WHERE cp.`product_id` = ?")
+	if err != nil {
+		log.Println(err)
+	}
+}
+
+func (s *session) prepareSelectCategoryProductByProductIDAndCategoryIDStmt() {
+	var err error
+	s.selectCategoryProductByProductIDAndCategoryIDStmt, err = s.db.Prepare(
+		"SELECT cp.id, p.site_id, p.feed_id, p.name, p.name_by_user, p.identifier, p.price, " +
+			"p.regular_price, p.description, p.description_by_user, " +
+			"p.currency, p.url, p.graphic_url, p.shipping_price, p.in_stock, " +
+			"p.points, p.has_categories, p.active, " +
+			"cp.category_id, cp.product_id, cp.forced " +
+			"FROM products p " +
+			"INNER JOIN category_product cp " +
+			"ON p.id = cp.product_id " +
+			"WHERE p.id = ? AND cp.category_id = ?")
 	if err != nil {
 		log.Println(err)
 	}
@@ -190,19 +227,7 @@ func (s *session) selectFeeds() error {
 			&f.SiteID,
 			&f.Name,
 			&f.URL,
-			&f.ProductsField,
-			&f.NameField,
-			&f.IdentifierField,
-			&f.DescriptionField,
-			&f.PriceField,
-			&f.ProductURLField,
-			&f.RegularPriceField,
-			&f.CurrencyField,
-			&f.ShippingPriceField,
-			&f.InStockField,
-			&f.GraphicURLField,
-			&f.CategoriesField,
-			&f.SyncCategories,
+			&f.NetworkID,
 			&f.AllowEmptyDescription,
 		)
 
@@ -230,7 +255,7 @@ func (s *session) prepare() {
 	}
 }
 
-func (s *session) getResult() {
+func (s *session) waitForResult() {
 	for i := 0; i < len(s.feeds); i++ {
 		select {
 		case m := <-s.FeedDone:
@@ -241,48 +266,45 @@ func (s *session) getResult() {
 	}
 }
 
-func (s *session) syncProductCategories(update bool) {
+func (s *session) syncProductCategories() {
 	var err error
 	s.categories, err = s.selectCategories()
 	if err != nil {
 		log.Print(err)
 	}
-	for _, f := range s.feeds {
-		go f.syncProductCategories(s, update)
+
+	for _, c := range s.categories {
+		err = c.syncProducts(s)
+		if err != nil {
+			log.Print(err)
+		}
+
 	}
 }
 
 func (s *session) update() {
 	defer s.db.Close()
 
-	s.cleanCategories()
 	for _, f := range s.feeds {
-		go f.update(s)
+		var err error
+		f.Network, err = f.selectNetwork(s)
+		if err != nil {
+			log.Println(err)
+		} else {
+			go f.update(s)
+		}
 	}
-	s.getResult()
+	s.waitForResult()
 
-	s.resetCategories()
-	var err error
-	s.categories, err = s.selectCategories()
-	if err != nil {
-		log.Print(err)
-	}
-
-	update := true
-	s.syncProductCategories(update)
-	s.getResult()
+	s.syncProductCategories()
+	s.waitForResult()
 }
 
 func (s *session) refresh() {
 	defer s.db.Close()
 
-	for _, f := range s.feeds {
-		go f.refresh(s)
-	}
-	s.getResult()
-	update := false
-	s.syncProductCategories(update)
-	s.getResult()
+	s.syncProductCategories()
+	s.waitForResult()
 }
 
 func (s *session) worker() {
@@ -291,21 +313,20 @@ func (s *session) worker() {
 		var err error
 		select {
 		case message := <-s.DBOperation:
-			switch message.entity.getDBAction() {
-
+			switch message.product.getDBAction() {
 			case DBACTION_INSERT:
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					err = message.entity.insert(s)
+					err = message.product.insert(s)
 					if err != nil {
 						log.Println(err)
 						message.feed.DBOperationError <- err
 					} else {
 						message.feed.DBOperationDone <- fmt.Sprintf(
 							"Inserted %s: '%s'.",
-							message.entity.getEntityType(),
-							message.entity.getName())
+							message.product.getEntityType(),
+							message.product.getName())
 					}
 				}()
 
@@ -313,15 +334,15 @@ func (s *session) worker() {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					err = message.entity.update(s)
+					err = message.product.update(s)
 					if err != nil {
 						log.Println(err)
 						message.feed.DBOperationError <- err
 					} else {
 						message.feed.DBOperationDone <- fmt.Sprintf(
 							"Updated %s: '%s'.",
-							message.entity.getEntityType(),
-							message.entity.getName())
+							message.product.getEntityType(),
+							message.product.getName())
 					}
 				}()
 
@@ -329,15 +350,15 @@ func (s *session) worker() {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					err = message.entity.delete(s)
+					err = message.product.delete(s)
 					if err != nil {
 						log.Println(err)
 						message.feed.DBOperationError <- err
 					} else {
 						message.feed.DBOperationDone <- fmt.Sprintf(
 							"Deleted %s: '%s'.",
-							message.entity.getEntityType(),
-							message.entity.getName())
+							message.product.getEntityType(),
+							message.product.getName())
 					}
 				}()
 
@@ -349,53 +370,6 @@ func (s *session) worker() {
 		}
 		wg.Wait()
 	}
-}
-
-func (s *session) cleanCategories() {
-	s.categories, _ = s.selectCategories()
-
-	for i := len(s.categories) - 1; i >= 0; i-- {
-		c := s.categories[i]
-		if c.getName() == "" {
-			err := c.delete(s)
-			if err != nil {
-				log.Println(err)
-			} else {
-				log.Println(fmt.Sprintf("Deleted empty category: %v", c.getID()))
-				s.categories = append(s.categories[:i], s.categories[i+1:]...)
-			}
-		}
-	}
-}
-
-func (s *session) resetCategories() {
-	s.categories = []categoryinterface{}
-}
-
-func (s *session) selectDefaultCategory() (categoryinterface, error) {
-	var c category
-	rows, err := s.selectDefaultCategoryStmt.Query(s.site.ID)
-	if err != nil {
-		log.Println(err)
-		return &c, err
-	}
-
-	defer rows.Close()
-	for rows.Next() {
-		c = category{}
-		err := rows.Scan(&c.ID, &c.Name, &c.Slug, &c.Keywords, &c.DescriptionByUser,
-			&c.CreatedByID)
-		if err != nil {
-			log.Println(err)
-		}
-	}
-
-	err = rows.Err()
-	if err != nil {
-		log.Println(err)
-	}
-
-	return &c, err
 }
 
 func (s *session) selectSite(subdomain string) (site, error) {
@@ -439,8 +413,13 @@ func (s *session) selectCategories() ([]categoryinterface, error) {
 	defer rows.Close()
 	for rows.Next() {
 		c := category{}
-		err := rows.Scan(&c.ID, &c.Name, &c.Slug, &c.Keywords, &c.DescriptionByUser,
-			&c.CreatedByID)
+		err := rows.Scan(
+			&c.ID,
+			&c.Name,
+			&c.Slug,
+			&c.Search,
+			&c.Description,
+		)
 		if err != nil {
 			log.Println(err)
 		} else {

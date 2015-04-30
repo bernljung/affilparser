@@ -1,42 +1,17 @@
 package main
 
-import (
-	"log"
-	"strings"
-)
-
-type categoryinterface interface {
-	indexesOf([]categoryinterface) []int
-	getName() string
-	getCategoryID() int
-	setCategoryID(int)
-	setSiteID(int)
-	getID() int
-	getKeywords() string
-	getEntityType() string
-	appendIfMissing([]categoryinterface) []categoryinterface
-	removeIfPresent([]categoryinterface) []categoryinterface
-	getDBAction() int
-	setDBAction(int)
-	getCreatedByID() int
-	setCreatedByID(int)
-	getDescriptionByUser() string
-	selectProducts(s *session) ([]product, error)
-	insert(s *session) error
-	update(s *session) error
-	delete(s *session) error
-}
+import "log"
 
 type category struct {
-	ID                int
-	ParentID          int
-	Name              string
-	Slug              string
-	SiteID            int
-	Keywords          string
-	DescriptionByUser string
-	CreatedByID       int
-	DBAction          int
+	ID          int
+	ParentID    int
+	Name        string
+	Slug        string
+	SiteID      int
+	Search      string
+	Description string
+	CreatedByID int
+	DBAction    int
 }
 
 func (c *category) getName() string {
@@ -51,12 +26,12 @@ func (c *category) setSiteID(siteID int) {
 	c.SiteID = siteID
 }
 
-func (c *category) getDescriptionByUser() string {
-	return c.DescriptionByUser
+func (c *category) getDescription() string {
+	return c.Description
 }
 
-func (c *category) getKeywords() string {
-	return c.Keywords
+func (c *category) getSearchString() string {
+	return c.Search
 }
 
 func (c *category) getCategoryID() int {
@@ -87,66 +62,71 @@ func (c *category) setCategoryID(id int) {
 	c.ID = id
 }
 
-func (c *category) indexesOf(slice []categoryinterface) []int {
-	indexes := []int{}
-	for i, ele := range slice {
-		if strings.ToLower(ele.getName()) == strings.ToLower(c.getName()) {
-			indexes = append(indexes, i)
-		}
-	}
-	return indexes
-}
+// func (c *category) indexesOf(slice []categoryinterface) []int {
+// 	indexes := []int{}
+// 	for i, ele := range slice {
+// 		if strings.ToLower(ele.getName()) == strings.ToLower(c.getName()) {
+// 			indexes = append(indexes, i)
+// 		}
+// 	}
+// 	return indexes
+// }
 
-func (c *category) selectProducts(s *session) ([]product, error) {
-	var products []product
-	rows, err := s.selectCategoryProductByCategoryIDStmt.Query(c.ID)
+func (c *category) selectProducts(s *session) ([]categoryproduct, error) {
+	var categoryProducts []categoryproduct
+	rows, err := s.selectCategoryProductsByCategoryIDStmt.Query(c.ID)
 
 	if err != nil {
 		log.Println(err)
-		return products, err
+		return categoryProducts, err
 	}
 
 	defer rows.Close()
 	for rows.Next() {
-		p := product{}
+		cp := categoryproduct{}
 		err := rows.Scan(
-			&p.ID,
-			&p.SiteID,
-			&p.FeedID,
-			&p.Name,
-			&p.NameByUser,
-			&p.Identifier,
-			&p.Price,
-			&p.RegularPrice,
-			&p.Description,
-			&p.DescriptionByUser,
-			&p.Keywords,
-			&p.Currency,
-			&p.ProductURL,
-			&p.GraphicURL,
-			&p.ShippingPrice,
-			&p.InStock,
+			&cp.ID,
+			&cp.product.SiteID,
+			&cp.product.FeedID,
+			&cp.product.Name,
+			&cp.product.NameByUser,
+			&cp.product.Identifier,
+			&cp.product.Price,
+			&cp.product.RegularPrice,
+			&cp.product.Description,
+			&cp.product.DescriptionByUser,
+			&cp.product.Currency,
+			&cp.product.ProductURL,
+			&cp.product.GraphicURL,
+			&cp.product.ShippingPrice,
+			&cp.product.InStock,
+			&cp.product.Points,
+			&cp.product.HasCategories,
+			&cp.product.Active,
+			&cp.category.ID,
+			&cp.product.ID,
+			&cp.Forced,
 		)
 		if err != nil {
 			log.Println(err)
-			return products, err
+			return categoryProducts, err
 		} else {
-			products = append(products, p)
+			categoryProducts = append(categoryProducts, cp)
 		}
 	}
 
 	err = rows.Err()
-	return products, err
+	return categoryProducts, err
 }
 
 func (c *category) insert(s *session) error {
 	_, err := s.db.Exec(
-		"INSERT INTO categories (name, slug, site_id, created_by_id, created_at, updated_at) "+
-			"VALUES (?,?,?,?,now(),now())",
+		"INSERT INTO categories (name, slug, site_id, created_at, updated_at) "+
+			"VALUES (?,?,?,now(),now())",
 		c.Name,
 		c.Slug,
 		c.SiteID,
-		CREATED_BY_FEED,
+		false,
 	)
 	return err
 }
@@ -161,84 +141,18 @@ func (c *category) delete(s *session) error {
 	return err
 }
 
-func (c *category) appendIfMissing(slice []categoryinterface) []categoryinterface {
-	indexes := c.indexesOf(slice)
-	if len(indexes) == 0 {
-		return append(slice, c)
-	}
-	return slice
-}
+func (c *category) syncProducts(s *session) error {
+	var err error
 
-func (c *category) removeIfPresent(slice []categoryinterface) []categoryinterface {
-	indexes := c.indexesOf(slice)
-	if len(indexes) > 0 {
-		for i := len(indexes) - 1; i >= 0; i-- {
-			slice = append(slice[:i], slice[i+1:]...)
-		}
-	}
-	return slice
-}
-
-type categoryproduct struct {
-	category
-	ID          int
-	CategoryID  int
-	ProductID   int
-	CreatedByID int
-}
-
-func (c *categoryproduct) getName() string {
-	return c.Name
-}
-
-func (c *categoryproduct) setSiteID(siteID int) {
-
-}
-
-func (c *categoryproduct) getKeywords() string {
-	return c.Keywords
-}
-
-func (c *categoryproduct) getDescriptionByUser() string {
-	return c.DescriptionByUser
-}
-
-func (c *categoryproduct) getCategoryID() int {
-	return c.CategoryID
-}
-
-func (c *categoryproduct) getCreatedByID() int {
-	return c.CreatedByID
-}
-
-func (c *categoryproduct) setCreatedByID(createdById int) {
-	c.CreatedByID = createdById
-}
-
-func (c *categoryproduct) getDBAction() int {
-	return 0
-}
-
-func (c *categoryproduct) setDBAction(action int) {
-	c.DBAction = action
-}
-
-func (c *categoryproduct) getID() int {
-	return c.ID
-}
-
-func (c *categoryproduct) setCategoryID(id int) {
-	c.CategoryID = id
-}
-
-func (c *categoryproduct) selectProducts(s *session) ([]product, error) {
-
-	var products []product
-	rows, err := s.selectCategoryProductByCategoryProductIDStmt.Query(c.ID)
-
+	activeProducts, err := c.selectProducts(s)
 	if err != nil {
 		log.Println(err)
-		return products, err
+	}
+
+	searchProducts := []product{}
+	rows, err := s.searchCategoryProductsStmt.Query(c.Search)
+	if err != nil {
+		log.Println(err)
 	}
 
 	defer rows.Close()
@@ -248,56 +162,59 @@ func (c *categoryproduct) selectProducts(s *session) ([]product, error) {
 			&p.ID,
 			&p.SiteID,
 			&p.FeedID,
-			&p.Name,
+			&p.BrandID,
 			&p.NameByUser,
+			&p.Name,
+			&p.Slug,
 			&p.Identifier,
 			&p.Price,
 			&p.RegularPrice,
-			&p.Description,
 			&p.DescriptionByUser,
-			&p.Keywords,
+			&p.Description,
 			&p.Currency,
 			&p.ProductURL,
 			&p.GraphicURL,
 			&p.ShippingPrice,
 			&p.InStock,
+			&p.Points,
+			&p.HasCategories,
+			&p.Active,
+			&p.CreatedAt,
+			&p.UpdatedAt,
 		)
+
 		if err != nil {
 			log.Println(err)
-			return products, err
 		} else {
-			products = append(products, p)
+			searchProducts = append(searchProducts, p)
 		}
 	}
 
-	err = rows.Err()
-	return products, err
-}
-
-func (c *categoryproduct) indexesOf(slice []categoryinterface) []int {
-	indexes := []int{}
-	for i, ele := range slice {
-		if strings.ToLower(ele.getName()) == strings.ToLower(c.getName()) {
-			indexes = append(indexes, i)
+	for _, p := range searchProducts {
+		indexes := p.indexesOf(activeProducts)
+		if len(indexes) == 0 {
+			p.attachCategory(s, c)
 		}
 	}
-	return indexes
-}
 
-func (c *categoryproduct) appendIfMissing(slice []categoryinterface) []categoryinterface {
-	indexes := c.indexesOf(slice)
-	if len(indexes) == 0 {
-		return append(slice, c)
-	}
-	return slice
-}
+	for _, p := range activeProducts {
+		indexes := []int{}
+		for i, ele := range searchProducts {
+			if ele.ID == p.product.ID {
+				indexes = append(indexes, i)
+			}
+		}
+		if len(indexes) == 0 {
+			cp, err := p.selectCategoryProduct(s, c)
+			if err != nil {
+				log.Println(err)
+			}
 
-func (c *categoryproduct) removeIfPresent(slice []categoryinterface) []categoryinterface {
-	indexes := c.indexesOf(slice)
-	if len(indexes) > 0 {
-		for i := range indexes {
-			slice = append(slice[:i], slice[i+1:]...)
+			if cp.Forced == false {
+				p.detachCategory(s, cp)
+			}
 		}
 	}
-	return slice
+
+	return err
 }

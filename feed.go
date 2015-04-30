@@ -19,25 +19,12 @@ type feed struct {
 	SiteID                int
 	Name                  string
 	URL                   string
-	ProductsField         string
-	NameField             string
-	IdentifierField       string
-	DescriptionField      string
-	PriceField            string
-	ProductURLField       string
-	RegularPriceField     string
-	CurrencyField         string
-	ShippingPriceField    string
-	InStockField          string
-	GraphicURLField       string
-	CategoriesField       string
-	SyncCategories        bool
+	NetworkID             int
+	Network               networkinterface
 	AllowEmptyDescription bool
 	FeedData              []byte
-	Categories            []categoryinterface
-	AllCategories         []categoryinterface
 	Products              map[string]product
-	EntitiesCount         int
+	ProductsCount         int
 	DBOperationDone       chan string
 	DBOperationError      chan error
 }
@@ -69,19 +56,19 @@ func (f *feed) update(s *session) {
 		return
 	}
 
-	f.DBOperationDone = make(chan string, len(f.Categories)+len(f.Products))
-	f.DBOperationError = make(chan error, len(f.Categories)+len(f.Products))
+	f.DBOperationDone = make(chan string, len(f.Products))
+	f.DBOperationError = make(chan error, len(f.Products))
 
-	err = f.syncDB(s)
+	err = f.syncProducts(s)
 	if err != nil {
 		log.Println(err)
 		s.FeedError <- feedmessage{feed: f, err: err, action: "update"}
 		return
 	}
 
-	log.Println("Synced " + strconv.Itoa(f.EntitiesCount) + " entities")
+	log.Println("Synced " + strconv.Itoa(f.ProductsCount) + " products")
 
-	for i := 0; i < f.EntitiesCount; i++ {
+	for i := 0; i < f.ProductsCount; i++ {
 		select {
 		case result := <-f.DBOperationDone:
 			log.Println(result)
@@ -106,169 +93,35 @@ func (f *feed) fetch() error {
 
 func (f *feed) parse() error {
 	var err error
-	var jsonData map[string]interface{}
 
-	err = json.Unmarshal(f.FeedData, &jsonData)
-	if err != nil {
-		log.Println(err)
-		return err
-	}
-	products, ok := jsonData[f.ProductsField].([]interface{})
-	if ok {
+	products, err := f.Network.parseProducts(f)
+	if err == nil {
 		f.Products = make(map[string]product)
 		for i, _ := range products {
-			p := product{}
-			p.parse(products[i], f)
-			valid := p.validate(f)
-			if valid {
-				f.Products[p.Identifier] = p
-			}
+			f.Products[products[i].Identifier] = products[i]
 		}
 	}
-	return nil
+	return err
 }
 
-func (f *feed) refresh(s *session) {
+func (f feed) selectNetwork(s *session) (networkinterface, error) {
 	var err error
-	f.Products, err = f.selectProducts(s)
-	f.DBOperationDone = make(chan string, len(f.Products))
-	f.DBOperationError = make(chan error, len(f.Products))
+	var network networkinterface
 
-	if err != nil {
-		log.Println(err)
+	switch f.NetworkID {
+	case NETWORK_ADRECORD:
+		n := adrecord{}
+		network = n
+
+	case NETWORK_TRADEDOUBLER:
+		n := tradedoubler{}
+		network = n
+	default:
+		log.Println("Invalid network id")
+		return network, err
 	}
 
-	for _, p := range f.Products {
-		refreshed := p.refresh()
-		if refreshed == true {
-			p.FeedID = f.ID
-			p.SiteID = f.SiteID
-			m := message{feed: f, entity: &p}
-			f.EntitiesCount++
-			s.DBOperation <- m
-		}
-	}
-
-	log.Println("Synced " + strconv.Itoa(f.EntitiesCount) + " entities")
-
-	for i := 0; i < f.EntitiesCount; i++ {
-		select {
-		case result := <-f.DBOperationDone:
-			log.Println(result)
-		case err := <-f.DBOperationError:
-			log.Println(err)
-		}
-	}
-
-	s.FeedDone <- feedmessage{feed: f, err: nil, action: "updateProductsKeywords"}
-}
-
-func (f *feed) syncProductCategories(s *session, update bool) {
-	products, err := f.selectProducts(s)
-	if err != nil {
-		log.Println(err)
-	}
-
-	for _, p := range products {
-		_ = p.syncCategories(s, f, update)
-	}
-	s.FeedDone <- feedmessage{feed: f, err: nil, action: "syncCategories"}
-}
-
-func (f *feed) syncDB(s *session) error {
-	var err error
-
-	if f.SyncCategories {
-		err = f.syncCategories(s)
-	} else {
-		err = f.safeDeleteFeedCategories(s)
-	}
-
-	if err != nil {
-		log.Println(err)
-		return err
-	}
-
-	err = f.syncProducts(s)
-	if err != nil {
-		log.Println(err)
-		return err
-	}
-	return nil
-}
-
-func (f *feed) safeDeleteFeedCategories(s *session) error {
-	dbCategories, err := s.selectCategories()
-
-	if err != nil {
-		log.Println(err)
-		return err
-	}
-
-	categoriesToDelete := []categoryinterface{}
-	for _, c := range f.Categories {
-		indexes := c.indexesOf(dbCategories)
-		if len(indexes) > 0 {
-			for _, i := range indexes {
-				category := dbCategories[i]
-				createdByID := category.getCreatedByID()
-				descriptionByUser := category.getDescriptionByUser()
-				keywords := category.getKeywords()
-				if createdByID == CREATED_BY_FEED && descriptionByUser == "" && keywords == "" {
-					products, err := category.selectProducts(s)
-					if err == nil {
-						productsFromOtherFeeds := false
-						for _, p := range products {
-							if p.FeedID != f.ID {
-								log.Println("productsFromOtherFeeds = true" + category.getName())
-								productsFromOtherFeeds = true
-							}
-						}
-						if productsFromOtherFeeds == false {
-							categoriesToDelete = append(categoriesToDelete, category)
-						}
-					}
-				}
-			}
-		}
-	}
-
-	for _, c := range categoriesToDelete {
-		c.setDBAction(DBACTION_DELETE)
-		c.setSiteID(f.SiteID)
-		m := message{feed: f, entity: c}
-		f.EntitiesCount++
-		s.DBOperation <- m
-	}
-
-	return nil
-}
-
-// syncCategories selects the categories from database and inserts new ones.
-func (f *feed) syncCategories(s *session) error {
-	dbCategories, err := s.selectCategories()
-	if err != nil {
-		log.Println(err)
-		return err
-	}
-
-	newCategories := []categoryinterface{}
-	for _, c := range f.Categories {
-		indexes := c.indexesOf(dbCategories)
-		if len(indexes) == 0 {
-			newCategories = append(newCategories, c)
-		}
-	}
-
-	for _, c := range newCategories {
-		c.setDBAction(DBACTION_INSERT)
-		c.setSiteID(f.SiteID)
-		m := message{feed: f, entity: c}
-		f.EntitiesCount++
-		s.DBOperation <- m
-	}
-
-	return nil
+	return network, err
 }
 
 func (f feed) selectProducts(s *session) (map[string]product, error) {
@@ -294,12 +147,14 @@ func (f feed) selectProducts(s *session) (map[string]product, error) {
 			&p.RegularPrice,
 			&p.Description,
 			&p.DescriptionByUser,
-			&p.Keywords,
 			&p.Currency,
 			&p.ProductURL,
 			&p.GraphicURL,
 			&p.ShippingPrice,
 			&p.InStock,
+			&p.Points,
+			&p.HasCategories,
+			&p.Active,
 		)
 		if err != nil {
 			log.Println(err)
@@ -326,13 +181,11 @@ func (f *feed) syncProducts(s *session) error {
 		for k, p := range f.Products {
 			_, ok := dbProducts[k]
 
-			_ = p.refresh()
-
 			if ok {
 				p.ID = dbProducts[k].ID
 
 				if dbProducts[k].Name != p.Name {
-					log.Println("ShippinNamegPrice")
+					log.Println("Name")
 					p.DBAction = DBACTION_UPDATE
 				}
 
@@ -381,11 +234,6 @@ func (f *feed) syncProducts(s *session) error {
 					p.DBAction = DBACTION_UPDATE
 				}
 
-				if dbProducts[k].Keywords != p.Keywords {
-					log.Println("Keywords")
-					p.DBAction = DBACTION_UPDATE
-				}
-
 			} else {
 				p.DBAction = DBACTION_INSERT
 			}
@@ -393,8 +241,8 @@ func (f *feed) syncProducts(s *session) error {
 			if p.DBAction > 0 {
 				p.FeedID = f.ID
 				p.SiteID = f.SiteID
-				m := message{feed: f, entity: p}
-				f.EntitiesCount++
+				m := message{feed: f, product: p}
+				f.ProductsCount++
 				s.DBOperation <- m
 			} else {
 				log.Println("No action for " + p.Name)
@@ -406,9 +254,10 @@ func (f *feed) syncProducts(s *session) error {
 			_, ok := f.Products[k]
 			if !ok {
 				p.DBAction = DBACTION_DELETE
+
 				p.SiteID = f.SiteID
-				m := message{feed: f, entity: p}
-				f.EntitiesCount++
+				m := message{feed: f, product: p}
+				f.ProductsCount++
 				s.DBOperation <- m
 			}
 		}

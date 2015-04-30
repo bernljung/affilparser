@@ -4,19 +4,9 @@ import (
 	"encoding/json"
 )
 
-type entity interface {
-	getDBAction() int
-	getName() string
-	getEntityType() string
-	setSiteID(int)
-	insert(s *session) error
-	update(s *session) error
-	delete(s *session) error
-}
-
 type message struct {
-	feed   *feed
-	entity entity
+	feed    *feed
+	product product
 }
 
 type Response struct {
