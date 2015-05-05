@@ -9,7 +9,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-var addr = flag.String("addr", ":8080", "http service address")
+var addr = flag.String("addr", ":8001", "http service address")
 var dbUser = flag.String("dbUser", "user", "database username")
 var dbPassword = flag.String("dbPassword", "password", "database password")
 var dbAddr = flag.String("dbAddr", "localhost", "database address")
