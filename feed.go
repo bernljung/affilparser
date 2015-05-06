@@ -98,13 +98,7 @@ func (f *feed) parse() error {
 	if err == nil {
 		f.Products = make(map[string]product)
 		for i, _ := range products {
-			if products[i].Description == "" {
-				if f.AllowEmptyDescription == true {
-					f.Products[products[i].Identifier] = products[i]
-				}
-			} else {
-				f.Products[products[i].Identifier] = products[i]
-			}
+			f.Products[products[i].Identifier] = products[i]
 		}
 	}
 	return err
@@ -190,54 +184,60 @@ func (f *feed) syncProducts(s *session) error {
 			if ok {
 				p.ID = dbProducts[k].ID
 
-				if dbProducts[k].Name != p.Name {
-					log.Println("Name")
-					p.DBAction = DBACTION_UPDATE
-				}
+				if p.Description == "" && f.AllowEmptyDescription == false {
+					p.DBAction = DBACTION_DELETE
 
-				if dbProducts[k].Identifier != p.Identifier {
-					log.Println("Identifier")
-					p.DBAction = DBACTION_UPDATE
-				}
+				} else {
+					log.Println()
+					if dbProducts[k].Name != p.Name {
+						log.Println("Name")
+						p.DBAction = DBACTION_UPDATE
+					}
 
-				if dbProducts[k].Description != p.Description {
-					log.Println("Description")
-					p.DBAction = DBACTION_UPDATE
-				}
+					if dbProducts[k].Identifier != p.Identifier {
+						log.Println("Identifier")
+						p.DBAction = DBACTION_UPDATE
+					}
 
-				if dbProducts[k].Price != dbProducts[k].Price {
-					log.Println("Price")
-					p.DBAction = DBACTION_UPDATE
-				}
+					if dbProducts[k].Description != p.Description {
+						log.Println("Description")
+						p.DBAction = DBACTION_UPDATE
+					}
 
-				if dbProducts[k].RegularPrice != dbProducts[k].RegularPrice {
-					log.Println("RegularPrice")
-					p.DBAction = DBACTION_UPDATE
-				}
+					if dbProducts[k].Price != dbProducts[k].Price {
+						log.Println("Price")
+						p.DBAction = DBACTION_UPDATE
+					}
 
-				if dbProducts[k].Currency != dbProducts[k].Currency {
-					log.Println("Currency")
-					p.DBAction = DBACTION_UPDATE
-				}
+					if dbProducts[k].RegularPrice != dbProducts[k].RegularPrice {
+						log.Println("RegularPrice")
+						p.DBAction = DBACTION_UPDATE
+					}
 
-				if dbProducts[k].ShippingPrice != dbProducts[k].ShippingPrice {
-					log.Println("ShippingPrice")
-					p.DBAction = DBACTION_UPDATE
-				}
+					if dbProducts[k].Currency != dbProducts[k].Currency {
+						log.Println("Currency")
+						p.DBAction = DBACTION_UPDATE
+					}
 
-				if dbProducts[k].InStock != dbProducts[k].InStock {
-					log.Println("InStock")
-					p.DBAction = DBACTION_UPDATE
-				}
+					if dbProducts[k].ShippingPrice != dbProducts[k].ShippingPrice {
+						log.Println("ShippingPrice")
+						p.DBAction = DBACTION_UPDATE
+					}
 
-				if dbProducts[k].ProductURL != p.ProductURL {
-					log.Println("ProductURL")
-					p.DBAction = DBACTION_UPDATE
-				}
+					if dbProducts[k].InStock != dbProducts[k].InStock {
+						log.Println("InStock")
+						p.DBAction = DBACTION_UPDATE
+					}
 
-				if dbProducts[k].GraphicURL != p.GraphicURL {
-					log.Println("GraphicURL")
-					p.DBAction = DBACTION_UPDATE
+					if dbProducts[k].ProductURL != p.ProductURL {
+						log.Println("ProductURL")
+						p.DBAction = DBACTION_UPDATE
+					}
+
+					if dbProducts[k].GraphicURL != p.GraphicURL {
+						log.Println("GraphicURL")
+						p.DBAction = DBACTION_UPDATE
+					}
 				}
 
 			} else {
