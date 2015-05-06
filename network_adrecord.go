@@ -55,6 +55,8 @@ func (n adrecord) parseProducts(f *feed) ([]product, error) {
 		p.InStock, _ = strconv.ParseBool(v.InStock)
 		p.SiteID = f.SiteID
 		p.FeedID = f.ID
+
+		products = append(products, p)
 	}
 
 	return products, err
