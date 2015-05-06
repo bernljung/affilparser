@@ -188,7 +188,6 @@ func (f *feed) syncProducts(s *session) error {
 					p.DBAction = DBACTION_DELETE
 
 				} else {
-					log.Println()
 					if dbProducts[k].Name != p.Name {
 						log.Println("Name")
 						p.DBAction = DBACTION_UPDATE
