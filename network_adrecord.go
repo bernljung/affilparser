@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"strconv"
+	"strings"
 )
 
 type adrecord struct {
@@ -41,7 +42,7 @@ func (n adrecord) parseProducts(f *feed) ([]product, error) {
 
 	for _, v := range a.Products {
 		p := product{}
-		p.Name = v.Name
+		p.Name = strings.Replace(v.Name, "&quot;", "", -1)
 		p.Slug = generateSlug(v.Name)
 		p.Identifier = v.SKU
 		p.Price = v.Price
@@ -54,7 +55,6 @@ func (n adrecord) parseProducts(f *feed) ([]product, error) {
 		p.InStock, _ = strconv.ParseBool(v.InStock)
 		p.SiteID = f.SiteID
 		p.FeedID = f.ID
-		products = append(products, p)
 	}
 
 	return products, err

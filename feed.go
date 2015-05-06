@@ -98,7 +98,13 @@ func (f *feed) parse() error {
 	if err == nil {
 		f.Products = make(map[string]product)
 		for i, _ := range products {
-			f.Products[products[i].Identifier] = products[i]
+			if products[i].Description == "" {
+				if f.AllowEmptyDescription == true {
+					f.Products[products[i].Identifier] = products[i]
+				}
+			} else {
+				f.Products[products[i].Identifier] = products[i]
+			}
 		}
 	}
 	return err
