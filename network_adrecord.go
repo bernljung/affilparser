@@ -43,7 +43,7 @@ func (n adrecord) parseProducts(f *feed) ([]product, error) {
 	for _, v := range a.Products {
 		p := product{}
 		p.Name = strings.Replace(v.Name, "&quot;", "", -1)
-		p.Slug = generateSlug(v.Name)
+		p.Slug = generateSlug(p.Name)
 		p.Identifier = v.SKU
 		p.Price = v.Price
 		p.RegularPrice = v.RegularPrice
