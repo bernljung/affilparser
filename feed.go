@@ -112,10 +112,13 @@ func (f feed) selectNetwork(s *session) (networkinterface, error) {
 	case NETWORK_ADRECORD:
 		n := adrecord{}
 		network = n
+		log.Println("Network Adrecord")
 
 	case NETWORK_TRADEDOUBLER:
 		n := tradedoubler{}
 		network = n
+		log.Println("Network TradeDoubler")
+
 	default:
 		log.Println("Invalid network id")
 		return network, err

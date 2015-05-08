@@ -1,5 +1,11 @@
 package main
 
+import (
+	"encoding/json"
+	"log"
+	"strings"
+)
+
 type tradedoubler struct {
 	ProductHeader struct {
 		TotalHits int
@@ -51,12 +57,37 @@ type tradedoubler struct {
 
 func (n tradedoubler) parseProducts(f *feed) ([]product, error) {
 	var err error
-	// var jsonData map[string]interface{}
+	var products []product
 
-	// err = json.Unmarshal(f.FeedData, &jsonData)
-	// if err != nil {
-	// 	return err
-	// }
-	// products, ok := jsonData[f.Network.getProductsField()].([]interface{})
-	return make([]product, 0), err
+	// Decode the json object
+	a := &tradedoubler{}
+	err = json.Unmarshal([]byte(f.FeedData), &a)
+	if err != nil {
+		log.Println(err)
+	}
+
+	for _, v := range a.Products {
+		p := product{}
+		p.Name = strings.Replace(v.Name, "&quot;", "", -1)
+		p.Slug = generateSlug(p.Name)
+		p.Identifier = v.Identifiers.SKU
+		p.Price = v.Offers[0].PriceHistory[0].Price.Value
+		p.RegularPrice = p.Price
+		p.Description = v.Description
+		p.Currency = v.Offers[0].PriceHistory[0].Price.Currency
+		p.ProductURL = v.Offers[0].ProductURL
+		p.GraphicURL = v.ProductImage.URL
+		p.ShippingPrice = v.Offers[0].ShippingCost
+		if v.Offers[0].InStock > 0 {
+			p.InStock = true
+		} else {
+			p.InStock = false
+		}
+		p.SiteID = f.SiteID
+		p.FeedID = f.ID
+
+		products = append(products, p)
+	}
+
+	return products, err
 }
