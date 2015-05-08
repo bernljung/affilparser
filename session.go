@@ -399,10 +399,6 @@ func (s *session) selectSite(subdomain string) (site, error) {
 }
 
 func (s *session) selectCategories() ([]categoryinterface, error) {
-	if len(s.categories) > 0 {
-		return s.categories, nil
-	}
-
 	categories := []categoryinterface{}
 	rows, err := s.selectCategoryStmt.Query(s.site.ID)
 	if err != nil {
