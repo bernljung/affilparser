@@ -158,6 +158,7 @@ func (f feed) selectProducts(s *session) (map[string]product, error) {
 			&p.Points,
 			&p.HasCategories,
 			&p.Active,
+			&p.DeletedAt,
 		)
 		if err != nil {
 			log.Println(err)
@@ -187,57 +188,62 @@ func (f *feed) syncProducts(s *session) error {
 			if ok {
 				p.ID = dbProducts[k].ID
 
-				if p.Description == "" && f.AllowEmptyDescription == false {
+				if dbProducts[k].DeletedAt.String != "" {
+					log.Println(dbProducts[k].Name + " reactivated!")
+					p.DBAction = DBACTION_UPDATE
+				}
+
+				if dbProducts[k].DeletedAt.String == "" && p.Description == "" && f.AllowEmptyDescription == false {
 					p.DBAction = DBACTION_DELETE
 
 				} else {
 					if dbProducts[k].Name != p.Name {
-						log.Println("Name")
+						log.Println(dbProducts[k].Name + " updated: " + p.Name)
 						p.DBAction = DBACTION_UPDATE
 					}
 
 					if dbProducts[k].Identifier != p.Identifier {
-						log.Println("Identifier")
+						log.Println(dbProducts[k].Name + " identifier(" + dbProducts[k].Identifier + ") updated: " + p.Identifier)
 						p.DBAction = DBACTION_UPDATE
 					}
 
 					if dbProducts[k].Description != p.Description {
-						log.Println("Description")
+						log.Println(dbProducts[k].Name + " description(" + dbProducts[k].Description + ") updated: " + p.Description)
 						p.DBAction = DBACTION_UPDATE
 					}
 
-					if dbProducts[k].Price != dbProducts[k].Price {
-						log.Println("Price")
+					if dbProducts[k].Price != p.Price {
+						log.Println(dbProducts[k].Name + " price(" + dbProducts[k].Price + ") updated: " + p.Price)
 						p.DBAction = DBACTION_UPDATE
 					}
 
-					if dbProducts[k].RegularPrice != dbProducts[k].RegularPrice {
-						log.Println("RegularPrice")
+					if dbProducts[k].RegularPrice != p.RegularPrice {
+						log.Println(dbProducts[k].Name + " regular(" + dbProducts[k].RegularPrice + ") price updated: " + p.RegularPrice)
 						p.DBAction = DBACTION_UPDATE
 					}
 
-					if dbProducts[k].Currency != dbProducts[k].Currency {
-						log.Println("Currency")
+					if dbProducts[k].Currency != p.Currency {
+						log.Println(dbProducts[k].Name + " currency(" + dbProducts[k].Currency + ") updated: " + p.Currency)
 						p.DBAction = DBACTION_UPDATE
 					}
 
-					if dbProducts[k].ShippingPrice != dbProducts[k].ShippingPrice {
-						log.Println("ShippingPrice")
+					if dbProducts[k].ShippingPrice != p.ShippingPrice {
+						log.Println(dbProducts[k].Name + " shipping(" + dbProducts[k].ShippingPrice + ") price updated: " + p.ShippingPrice)
 						p.DBAction = DBACTION_UPDATE
 					}
 
-					if dbProducts[k].InStock != dbProducts[k].InStock {
-						log.Println("InStock")
+					if dbProducts[k].InStock != p.InStock {
+						log.Println(dbProducts[k].Name + " in stock(" + strconv.FormatBool(dbProducts[k].InStock) + ") updated: " + strconv.FormatBool(p.InStock))
 						p.DBAction = DBACTION_UPDATE
 					}
 
 					if dbProducts[k].ProductURL != p.ProductURL {
-						log.Println("ProductURL")
+						log.Println(dbProducts[k].Name + " product URL(" + dbProducts[k].ProductURL + ") updated: " + p.ProductURL)
 						p.DBAction = DBACTION_UPDATE
 					}
 
 					if dbProducts[k].GraphicURL != p.GraphicURL {
-						log.Println("GraphicURL")
+						log.Println(dbProducts[k].Name + " graphic URL(" + dbProducts[k].GraphicURL + ") updated: " + p.GraphicURL)
 						p.DBAction = DBACTION_UPDATE
 					}
 				}

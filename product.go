@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"log"
 	"strings"
 	"unicode"
@@ -32,6 +33,7 @@ type product struct {
 	DBAction          int
 	CreatedAt         string
 	UpdatedAt         string
+	DeletedAt         sql.NullString
 }
 
 func (p product) getName() string {
@@ -54,7 +56,6 @@ func (p product) getDBAction() int {
 }
 
 func (p product) insert(s *session) error {
-	log.Println(p.Name)
 	_, err := s.db.Exec(
 		"INSERT INTO products (name, site_id, slug, feed_id, identifier, description, "+
 			"price, regular_price, currency, shipping_price, "+
@@ -82,7 +83,7 @@ func (p product) update(s *session) error {
 		"UPDATE products SET name = ?, identifier = ?, description = ?, "+
 			"price = ?, regular_price = ?, currency = ?, shipping_price = ?,"+
 			"in_stock = ?, url = ?, graphic_url = ?, has_categories = ?, "+
-			"updated_at = now() WHERE id = ?",
+			"updated_at = now(), deleted_at = ? WHERE id = ?",
 		p.Name,
 		p.Identifier,
 		p.Description,
@@ -94,9 +95,9 @@ func (p product) update(s *session) error {
 		p.ProductURL,
 		p.GraphicURL,
 		p.HasCategories,
+		p.DeletedAt,
 		p.ID,
 	)
-
 	return err
 }
 
@@ -119,7 +120,7 @@ func (p *product) updateHasCategories(s *session) error {
 }
 
 func (p product) delete(s *session) error {
-	_, err := s.db.Exec("DELETE FROM products WHERE id = ?", p.ID)
+	_, err := s.db.Exec("UPDATE products SET deleted_at = NOW() WHERE id = ?", p.ID)
 
 	return err
 }

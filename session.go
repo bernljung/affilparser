@@ -11,7 +11,6 @@ import (
 const DBACTION_INSERT = 1
 const DBACTION_UPDATE = 2
 const DBACTION_DELETE = 3
-const DBACTION_NOTHING = 4
 
 type session struct {
 	db                                                *sql.DB
@@ -119,7 +118,8 @@ func (s *session) prepareSelectCategoryCountByProductIDStmt() {
 func (s *session) prepareSearchCategoryProductsStmt() {
 	var err error
 	s.searchCategoryProductsStmt, err = s.db.Prepare("SELECT * FROM products " +
-		" WHERE MATCH(`name`,name_by_user,description,description_by_user) " +
+		"WHERE site_id = ? " +
+		"AND MATCH(`name`,name_by_user,description,description_by_user) " +
 		"AGAINST (? IN BOOLEAN MODE)")
 	if err != nil {
 		log.Println(err)
@@ -132,7 +132,7 @@ func (s *session) prepareSelectFeedProductStmt() {
 		"SELECT id, site_id, feed_id, name, name_by_user, identifier, price, " +
 			"regular_price, description, description_by_user, " +
 			"currency, url, graphic_url, " + "shipping_price, in_stock, " +
-			"points, has_categories, active " +
+			"points, has_categories, active, deleted_at " +
 			"FROM products WHERE feed_id = ?")
 	if err != nil {
 		log.Println(err)
@@ -154,7 +154,7 @@ func (s *session) prepareSelectCategoryProductsByCategoryIDStmt() {
 		"SELECT cp.id, p.site_id, p.feed_id, p.name, p.name_by_user, p.identifier, p.price, " +
 			"p.regular_price, p.description, p.description_by_user, " +
 			"p.currency, p.url, p.graphic_url, p.shipping_price, p.in_stock, " +
-			"p.points, p.has_categories, p.active, " +
+			"p.points, p.has_categories, p.active, p.deleted_at, " +
 			"cp.category_id, cp.product_id, cp.forced " +
 			"FROM products p " +
 			"INNER JOIN category_product cp " +

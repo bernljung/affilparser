@@ -103,6 +103,7 @@ func (c *category) selectProducts(s *session) ([]categoryproduct, error) {
 			&cp.product.Points,
 			&cp.product.HasCategories,
 			&cp.product.Active,
+			&cp.product.DeletedAt,
 			&cp.category.ID,
 			&cp.product.ID,
 			&cp.Forced,
@@ -150,7 +151,7 @@ func (c *category) syncProducts(s *session) error {
 	}
 
 	searchProducts := []product{}
-	rows, err := s.searchCategoryProductsStmt.Query(c.Search)
+	rows, err := s.searchCategoryProductsStmt.Query(c.Search, s.site.ID)
 	if err != nil {
 		log.Println(err)
 	}
@@ -181,6 +182,7 @@ func (c *category) syncProducts(s *session) error {
 			&p.Active,
 			&p.CreatedAt,
 			&p.UpdatedAt,
+			&p.DeletedAt,
 		)
 
 		if err != nil {
