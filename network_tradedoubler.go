@@ -68,13 +68,15 @@ func (n tradedoubler) parseProducts(f *feed) ([]product, error) {
 	}
 
 	for _, v := range a.Products {
+		var errs error
 		p := product{}
 		p.Name = strings.Replace(v.Name, "&quot;", "", -1)
 		p.Slug = generateSlug(p.Name)
 		p.Identifier = v.Identifiers.SKU
-		p.Price, err = strconv.ParseFloat(v.Offers[0].PriceHistory[0].Price.Value, 64)
-		if err != nil {
+		p.Price, errs = strconv.ParseFloat(v.Offers[0].PriceHistory[0].Price.Value, 64)
+		if errs != nil {
 			p.Price = 0
+			errs = nil
 		}
 
 		p.RegularPrice = p.Price
@@ -82,9 +84,10 @@ func (n tradedoubler) parseProducts(f *feed) ([]product, error) {
 		p.Currency = v.Offers[0].PriceHistory[0].Price.Currency
 		p.ProductURL = v.Offers[0].ProductURL
 		p.GraphicURL = v.ProductImage.URL
-		p.ShippingPrice, err = strconv.ParseFloat(v.Offers[0].ShippingCost, 64)
-		if err != nil {
+		p.ShippingPrice, errs = strconv.ParseFloat(v.Offers[0].ShippingCost, 64)
+		if errs != nil {
 			p.ShippingPrice = 0
+			errs = nil
 		}
 
 		if v.Offers[0].InStock > 0 {
