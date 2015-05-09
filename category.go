@@ -62,16 +62,6 @@ func (c *category) setCategoryID(id int) {
 	c.ID = id
 }
 
-// func (c *category) indexesOf(slice []categoryinterface) []int {
-// 	indexes := []int{}
-// 	for i, ele := range slice {
-// 		if strings.ToLower(ele.getName()) == strings.ToLower(c.getName()) {
-// 			indexes = append(indexes, i)
-// 		}
-// 	}
-// 	return indexes
-// }
-
 func (c *category) selectProducts(s *session) ([]categoryproduct, error) {
 	var categoryProducts []categoryproduct
 	rows, err := s.selectCategoryProductsByCategoryIDStmt.Query(c.ID)
@@ -138,7 +128,7 @@ func (c *category) update(s *session) error {
 }
 
 func (c *category) delete(s *session) error {
-	_, err := s.db.Exec("DELETE FROM categories WHERE id = ?", c.ID)
+	_, err := s.db.Exec("UPDATE categories SET deleted_at = NOW() WHERE id = ?", c.ID)
 	return err
 }
 
