@@ -141,7 +141,7 @@ func (c *category) syncProducts(s *session) error {
 	}
 
 	searchProducts := []product{}
-	rows, err := s.searchCategoryProductsStmt.Query(c.Search, s.site.ID)
+	rows, err := s.searchCategoryProductsStmt.Query(s.site.ID, c.Search)
 	if err != nil {
 		log.Println(err)
 	}
