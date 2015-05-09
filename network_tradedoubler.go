@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"log"
+	"strconv"
 	"strings"
 )
 
@@ -71,13 +72,21 @@ func (n tradedoubler) parseProducts(f *feed) ([]product, error) {
 		p.Name = strings.Replace(v.Name, "&quot;", "", -1)
 		p.Slug = generateSlug(p.Name)
 		p.Identifier = v.Identifiers.SKU
-		p.Price = v.Offers[0].PriceHistory[0].Price.Value
+		p.Price, err = strconv.ParseFloat(v.Offers[0].PriceHistory[0].Price.Value, 64)
+		if err != nil {
+			p.Price = 0
+		}
+
 		p.RegularPrice = p.Price
 		p.Description = v.Description
 		p.Currency = v.Offers[0].PriceHistory[0].Price.Currency
 		p.ProductURL = v.Offers[0].ProductURL
 		p.GraphicURL = v.ProductImage.URL
-		p.ShippingPrice = v.Offers[0].ShippingCost
+		p.ShippingPrice, err = strconv.ParseFloat(v.Offers[0].ShippingCost, 64)
+		if err != nil {
+			p.ShippingPrice = 0
+		}
+
 		if v.Offers[0].InStock > 0 {
 			p.InStock = true
 		} else {

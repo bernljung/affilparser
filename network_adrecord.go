@@ -45,18 +45,29 @@ func (n adrecord) parseProducts(f *feed) ([]product, error) {
 		p.Name = strings.Replace(v.Name, "&quot;", "", -1)
 		p.Slug = generateSlug(p.Name)
 		p.Identifier = v.SKU
-		p.Price = v.Price
-		p.RegularPrice = v.RegularPrice
+		p.Price, err = strconv.ParseFloat(v.Price, 64)
+		if err != nil {
+			p.Price = 0
+		}
+
+		p.RegularPrice, err = strconv.ParseFloat(v.RegularPrice, 64)
+		if err != nil {
+			p.RegularPrice = 0
+		}
+
 		p.Description = v.Description
 		p.Currency = v.Currency
 		p.ProductURL = v.ProductURL
 		p.GraphicURL = v.GraphicURL
-		p.ShippingPrice = v.ShippingPrice
+		p.ShippingPrice, err = strconv.ParseFloat(v.ShippingPrice, 64)
+		if err != nil {
+			p.ShippingPrice = 0
+		}
+
 		p.InStock, _ = strconv.ParseBool(v.InStock)
 		p.SiteID = f.SiteID
 		p.FeedID = f.ID
 
-		log.Println(p.Price)
 		products = append(products, p)
 	}
 

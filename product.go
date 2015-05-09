@@ -20,12 +20,12 @@ type product struct {
 	Description       string
 	DescriptionByUser string
 	Brand             string
-	Price             string
+	Price             float64
 	ProductURL        string
 	GraphicURL        string
-	RegularPrice      string
+	RegularPrice      float64
 	Currency          string
-	ShippingPrice     string
+	ShippingPrice     float64
 	InStock           bool
 	Points            int
 	HasCategories     bool
