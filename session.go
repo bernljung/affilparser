@@ -19,7 +19,7 @@ type session struct {
 	insertProductStmt                                 *sql.Stmt
 	selectCategoryStmt                                *sql.Stmt
 	insertCategoryStmt                                *sql.Stmt
-	selectFeedProductStmt                             *sql.Stmt
+	selectFeedProductsStmt                            *sql.Stmt
 	selectFeedNetworkStmt                             *sql.Stmt
 	deleteProductStmt                                 *sql.Stmt
 	selectCategoryProductStmt                         *sql.Stmt
@@ -61,7 +61,7 @@ func (s *session) init(subdomain string) error {
 		s.prepareSelectFeedsStmt()
 		s.prepareSelectCategoryStmt()
 		s.prepareSearchCategoryProductsStmt()
-		s.prepareSelectFeedProductStmt()
+		s.prepareSelectFeedProductsStmt()
 		s.prepareSelectFeedNetworkStmt()
 		s.prepareSelectCategoryProductStmt()
 		s.prepareSelectCategoryCountByProductIDStmt()
@@ -126,12 +126,12 @@ func (s *session) prepareSearchCategoryProductsStmt() {
 	}
 }
 
-func (s *session) prepareSelectFeedProductStmt() {
+func (s *session) prepareSelectFeedProductsStmt() {
 	var err error
-	s.selectFeedProductStmt, err = s.db.Prepare(
+	s.selectFeedProductsStmt, err = s.db.Prepare(
 		"SELECT id, site_id, feed_id, name, name_by_user, identifier, price, " +
 			"regular_price, description, description_by_user, " +
-			"currency, url, graphic_url, " + "shipping_price, in_stock, " +
+			"currency, url, graphic_url, shipping_price, in_stock, " +
 			"points, has_categories, active, deleted_at " +
 			"FROM products WHERE feed_id = ?")
 	if err != nil {
@@ -399,6 +399,10 @@ func (s *session) selectSite(subdomain string) (site, error) {
 }
 
 func (s *session) selectCategories() ([]categoryinterface, error) {
+	if len(s.categories) > 0 {
+		return s.categories, nil
+	}
+
 	categories := []categoryinterface{}
 	rows, err := s.selectCategoryStmt.Query(s.site.ID)
 	if err != nil {

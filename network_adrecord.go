@@ -56,6 +56,7 @@ func (n adrecord) parseProducts(f *feed) ([]product, error) {
 		p.SiteID = f.SiteID
 		p.FeedID = f.ID
 
+		log.Println(p.Price)
 		products = append(products, p)
 	}
 

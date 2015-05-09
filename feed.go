@@ -130,7 +130,7 @@ func (f feed) selectNetwork(s *session) (networkinterface, error) {
 func (f feed) selectProducts(s *session) (map[string]product, error) {
 	products := make(map[string]product)
 
-	rows, err := s.selectFeedProductStmt.Query(f.ID)
+	rows, err := s.selectFeedProductsStmt.Query(f.ID)
 	if err != nil {
 		log.Println(err)
 		return products, err
