@@ -188,12 +188,12 @@ func (f *feed) syncProducts(s *session) error {
 			if ok {
 				p.ID = dbProducts[k].ID
 
-				if dbProducts[k].DeletedAt.String != "" {
+				if dbProducts[k].isDeleted() == true {
 					log.Println(dbProducts[k].Name + " reactivated!")
 					p.DBAction = DBACTION_UPDATE
 				}
 
-				if dbProducts[k].DeletedAt.String == "" && p.Description == "" && f.AllowEmptyDescription == false {
+				if dbProducts[k].isDeleted() == false && p.Description == "" && f.AllowEmptyDescription == false {
 					p.DBAction = DBACTION_DELETE
 
 				} else {
@@ -266,7 +266,7 @@ func (f *feed) syncProducts(s *session) error {
 		// Check if DBProduct no longer exists in feed, delete
 		for k, p := range dbProducts {
 			_, ok := f.Products[k]
-			if !ok {
+			if !ok && p.isDeleted() == false {
 				p.DBAction = DBACTION_DELETE
 
 				p.SiteID = f.SiteID

@@ -55,6 +55,10 @@ func (p product) getDBAction() int {
 	return p.DBAction
 }
 
+func (p product) isDeleted() bool {
+	return p.DeletedAt.String != ""
+}
+
 func (p product) insert(s *session) error {
 	_, err := s.db.Exec(
 		"INSERT INTO products (name, site_id, slug, feed_id, identifier, description, "+
