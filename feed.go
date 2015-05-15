@@ -258,8 +258,6 @@ func (f *feed) syncProducts(s *session) error {
 				m := message{feed: f, product: p}
 				f.ProductsCount++
 				s.DBOperation <- m
-			} else {
-				log.Println("No action for " + p.Name)
 			}
 		}
 
