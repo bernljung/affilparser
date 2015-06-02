@@ -119,6 +119,11 @@ func (f feed) selectNetwork(s *session) (networkinterface, error) {
 		network = n
 		log.Println("Network TradeDoubler")
 
+	case NETWORK_ADTRACTION:
+		n := adtraction{}
+		network = n
+		log.Println("Network AdTraction")
+
 	default:
 		log.Println("Invalid network id")
 		return network, err
