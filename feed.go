@@ -87,6 +87,7 @@ func (f *feed) fetch() error {
 		return err
 	}
 	defer resp.Body.Close()
+	log.Println(resp.Body)
 	f.FeedData, _ = ioutil.ReadAll(resp.Body)
 	return nil
 }
@@ -98,7 +99,9 @@ func (f *feed) parse() error {
 	if err == nil {
 		f.Products = make(map[string]product)
 		for i, _ := range products {
-			f.Products[products[i].Identifier] = products[i]
+			if products[i].GraphicURL != "" {
+				f.Products[products[i].Identifier] = products[i]
+			}
 		}
 	}
 	return err
