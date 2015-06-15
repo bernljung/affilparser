@@ -16,9 +16,9 @@ type AdtractionProduct struct {
 	Shipping    string
 	Currency    string
 	InStock     string
-	ProductURL  string
-	ImageURL    string
-	TrackingURL string
+	ProductUrl  string
+	ImageUrl    string
+	TrackingUrl string
 }
 
 type adtraction struct {
@@ -56,8 +56,8 @@ func (n adtraction) parseProducts(f *feed) ([]product, error) {
 
 		p.Description = v.Description
 		p.Currency = v.Currency
-		p.ProductURL = v.ProductURL
-		p.GraphicURL = v.ImageURL
+		p.ProductURL = v.ProductUrl
+		p.GraphicURL = v.ImageUrl
 		p.ShippingPrice, errs = strconv.ParseFloat(v.Shipping, 64)
 		if errs != nil {
 			p.ShippingPrice = 0
