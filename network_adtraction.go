@@ -56,7 +56,7 @@ func (n adtraction) parseProducts(f *feed) ([]product, error) {
 
 		p.Description = v.Description
 		p.Currency = v.Currency
-		p.ProductURL = v.ProductUrl
+		p.ProductURL = v.TrackingUrl
 		p.GraphicURL = v.ImageUrl
 		p.ShippingPrice, errs = strconv.ParseFloat(v.Shipping, 64)
 		if errs != nil {
