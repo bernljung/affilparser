@@ -206,52 +206,53 @@ func (f *feed) syncProducts(s *session) error {
 
 				} else {
 					if dbProducts[k].Name != p.Name {
-						log.Println(dbProducts[k].Name + " updated: " + p.Name)
+						log.Println(f.Name + ": Site: " + strconv.Itoa(f.SiteID) + " " + dbProducts[k].Name + " updated: " + p.Name)
 						p.DBAction = DBACTION_UPDATE
 					}
 
 					if dbProducts[k].Identifier != p.Identifier {
-						log.Println(dbProducts[k].Name + " identifier (" + dbProducts[k].Identifier + ") updated: " + p.Identifier)
+						log.Println(f.Name + ": Site: " + strconv.Itoa(f.SiteID) + " " + dbProducts[k].Name + " identifier (" + dbProducts[k].Identifier + ") updated: " + p.Identifier)
 						p.DBAction = DBACTION_UPDATE
 					}
 
 					if dbProducts[k].Description != p.Description {
-						log.Println(dbProducts[k].Name + " description (" + dbProducts[k].Description + ") updated: " + p.Description)
+						log.Println(f.Name + ": Site: " + strconv.Itoa(f.SiteID) + " " + dbProducts[k].Name + " description (" + dbProducts[k].Description + ") updated: " + p.Description)
 						p.DBAction = DBACTION_UPDATE
 					}
 
-					if dbProducts[k].Price != p.Price {
-						log.Println(dbProducts[k].Name + " price (" + strconv.FormatFloat(dbProducts[k].Price, 'f', 2, 64) + ") updated: " + strconv.FormatFloat(p.Price, 'f', 2, 64))
+					if strconv.FormatFloat(dbProducts[k].Price, 'f', 2, 64) != strconv.FormatFloat(p.Price, 'f', 2, 64) {
+						log.Println(f.Name + ": Site: " + strconv.Itoa(f.SiteID) + " " + dbProducts[k].Name + " price (" + strconv.FormatFloat(dbProducts[k].Price, 'f', 2, 64) + ") updated: " + strconv.FormatFloat(p.Price, 'f', 2, 64))
 						p.DBAction = DBACTION_UPDATE
 					}
 
-					if dbProducts[k].RegularPrice != p.RegularPrice {
-						log.Println(dbProducts[k].Name + " regular (" + strconv.FormatFloat(dbProducts[k].RegularPrice, 'f', 2, 64) + ") price updated: " + strconv.FormatFloat(p.RegularPrice, 'f', 2, 64))
+					if strconv.FormatFloat(dbProducts[k].RegularPrice, 'f', 2, 64) != strconv.FormatFloat(p.RegularPrice, 'f', 2, 64) {
+						log.Println(dbProducts[k].RegularPrice, p.RegularPrice)
+						log.Println(f.Name + ": Site: " + strconv.Itoa(f.SiteID) + " " + dbProducts[k].Name + " regular price (" + strconv.FormatFloat(dbProducts[k].RegularPrice, 'f', 2, 64) + ") updated: " + strconv.FormatFloat(p.RegularPrice, 'f', 2, 64))
 						p.DBAction = DBACTION_UPDATE
 					}
 
 					if dbProducts[k].Currency != p.Currency {
-						log.Println(dbProducts[k].Name + " currency (" + dbProducts[k].Currency + ") updated: " + p.Currency)
+						log.Println(f.Name + ": Site: " + strconv.Itoa(f.SiteID) + " " + dbProducts[k].Name + " currency (" + dbProducts[k].Currency + ") updated: " + p.Currency)
 						p.DBAction = DBACTION_UPDATE
 					}
 
 					if dbProducts[k].ShippingPrice != p.ShippingPrice {
-						log.Println(dbProducts[k].Name + " shipping price (" + strconv.FormatFloat(dbProducts[k].ShippingPrice, 'f', 2, 64) + ") updated: " + strconv.FormatFloat(p.ShippingPrice, 'f', 2, 64))
+						log.Println(f.Name + ": Site: " + strconv.Itoa(f.SiteID) + " " + dbProducts[k].Name + " shipping price (" + strconv.FormatFloat(dbProducts[k].ShippingPrice, 'f', 2, 64) + ") updated: " + strconv.FormatFloat(p.ShippingPrice, 'f', 2, 64))
 						p.DBAction = DBACTION_UPDATE
 					}
 
 					if dbProducts[k].InStock != p.InStock {
-						log.Println(dbProducts[k].Name + " in stock (" + strconv.FormatBool(dbProducts[k].InStock) + ") updated: " + strconv.FormatBool(p.InStock))
+						log.Println(f.Name + ": Site: " + strconv.Itoa(f.SiteID) + " " + dbProducts[k].Name + " in stock (" + strconv.FormatBool(dbProducts[k].InStock) + ") updated: " + strconv.FormatBool(p.InStock))
 						p.DBAction = DBACTION_UPDATE
 					}
 
 					if dbProducts[k].ProductURL != p.ProductURL {
-						log.Println(dbProducts[k].Name + " product URL (" + dbProducts[k].ProductURL + ") updated: " + p.ProductURL)
+						log.Println(f.Name + ": Site: " + strconv.Itoa(f.SiteID) + " " + dbProducts[k].Name + " product URL (" + dbProducts[k].ProductURL + ") updated: " + p.ProductURL)
 						p.DBAction = DBACTION_UPDATE
 					}
 
 					if dbProducts[k].GraphicURL != p.GraphicURL {
-						log.Println(dbProducts[k].Name + " graphic URL (" + dbProducts[k].GraphicURL + ") updated: " + p.GraphicURL)
+						log.Println(f.Name + ": Site: " + strconv.Itoa(f.SiteID) + " " + dbProducts[k].Name + " graphic URL (" + dbProducts[k].GraphicURL + ") updated: " + p.GraphicURL)
 						p.DBAction = DBACTION_UPDATE
 					}
 				}
