@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 type feedmessage struct {
@@ -82,7 +83,11 @@ func (f *feed) update(s *session) {
 
 // fetch downloads the feed data
 func (f *feed) fetch() error {
-	resp, err := http.Get(f.URL)
+	timeout := time.Duration(5 * time.Second)
+	client := http.Client{
+		Timeout: timeout,
+	}
+	resp, err := client.Get(f.URL)
 	if err != nil {
 		return err
 	}
