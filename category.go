@@ -141,72 +141,72 @@ func (c *category) syncProducts(s *session) error {
 	}
 
 	searchProducts := []product{}
+	log.Println(s.site.ID, c.Search)
 	rows, err := s.searchCategoryProductsStmt.Query(s.site.ID, c.Search)
 	if err != nil {
 		log.Println(err)
-	}
+	} else {
+		defer rows.Close()
+		for rows.Next() {
+			p := product{}
+			err := rows.Scan(
+				&p.ID,
+				&p.SiteID,
+				&p.FeedID,
+				&p.BrandID,
+				&p.NameByUser,
+				&p.Name,
+				&p.Slug,
+				&p.Identifier,
+				&p.Price,
+				&p.RegularPrice,
+				&p.DescriptionByUser,
+				&p.Description,
+				&p.Currency,
+				&p.ProductURL,
+				&p.GraphicURL,
+				&p.ShippingPrice,
+				&p.InStock,
+				&p.Points,
+				&p.HasCategories,
+				&p.Active,
+				&p.CreatedAt,
+				&p.UpdatedAt,
+				&p.DeletedAt,
+			)
 
-	defer rows.Close()
-	for rows.Next() {
-		p := product{}
-		err := rows.Scan(
-			&p.ID,
-			&p.SiteID,
-			&p.FeedID,
-			&p.BrandID,
-			&p.NameByUser,
-			&p.Name,
-			&p.Slug,
-			&p.Identifier,
-			&p.Price,
-			&p.RegularPrice,
-			&p.DescriptionByUser,
-			&p.Description,
-			&p.Currency,
-			&p.ProductURL,
-			&p.GraphicURL,
-			&p.ShippingPrice,
-			&p.InStock,
-			&p.Points,
-			&p.HasCategories,
-			&p.Active,
-			&p.CreatedAt,
-			&p.UpdatedAt,
-			&p.DeletedAt,
-		)
-
-		if err != nil {
-			log.Println(err)
-		} else {
-			searchProducts = append(searchProducts, p)
-		}
-	}
-
-	for _, p := range searchProducts {
-		indexes := p.indexesOf(activeProducts)
-		if len(indexes) == 0 {
-			p.attachCategory(s, c)
-		}
-	}
-
-	for _, p := range activeProducts {
-		indexes := []int{}
-		for i, ele := range searchProducts {
-			if ele.ID == p.product.ID {
-				indexes = append(indexes, i)
-			}
-		}
-		if len(indexes) == 0 {
-			cp, err := p.selectCategoryProduct(s, c)
 			if err != nil {
 				log.Println(err)
+			} else {
+				searchProducts = append(searchProducts, p)
 			}
+		}
 
-			if cp.Forced == false {
-				p.detachCategory(s, cp)
+		for _, p := range searchProducts {
+			indexes := p.indexesOf(activeProducts)
+			if len(indexes) == 0 {
+				p.attachCategory(s, c)
+			}
+		}
+
+		for _, p := range activeProducts {
+			indexes := []int{}
+			for i, ele := range searchProducts {
+				if ele.ID == p.product.ID {
+					indexes = append(indexes, i)
+				}
+			}
+			if len(indexes) == 0 {
+				cp, err := p.selectCategoryProduct(s, c)
+				if err != nil {
+					log.Println(err)
+				}
+
+				if cp.Forced == false {
+					p.detachCategory(s, cp)
+				}
 			}
 		}
 	}
-
 	return err
 }
