@@ -119,7 +119,7 @@ func (s *session) prepareSearchCategoryProductsStmt() {
 	var err error
 	s.searchCategoryProductsStmt, err = s.db.Prepare("SELECT * FROM products " +
 		"WHERE site_id = ? " +
-		"AND MATCH(`name`,`description) " +
+		"AND MATCH(`name`,`description`) " +
 		"AGAINST (? IN BOOLEAN MODE)")
 	if err != nil {
 		log.Println(err)
