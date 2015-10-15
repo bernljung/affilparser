@@ -1,0 +1,1 @@
+go build && ./affilparser --dbAddr 127.0.0.1 --dbUser homestead --dbPassword secret --dbPort 33060 --database store

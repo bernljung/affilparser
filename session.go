@@ -36,6 +36,7 @@ type session struct {
 	DBOperation                                       chan message
 	FeedDone                                          chan feedmessage
 	FeedError                                         chan feedmessage
+	CategoryDone																			chan categorymessage
 }
 
 func (s *session) init(subdomain string) error {
@@ -266,9 +267,23 @@ func (s *session) waitForResult() {
 	}
 }
 
+func (s *session) waitForRefreshResult() {
+	for i := 0; i < len(s.categories); i++ {
+		select {
+		case m := <-s.CategoryDone:
+			log.Println(m.category.Name + " completed.")
+		}
+		if i == len(s.categories) - 1 {
+			log.Println("Session done")
+ 			<-SessionQueue
+    }
+	}
+}
+
 func (s *session) syncProductCategories() {
 	var err error
 	s.categories, err = s.selectCategories()
+	s.CategoryDone = make(chan categorymessage, len(s.categories))
 	if err != nil {
 		log.Print(err)
 	}
@@ -297,14 +312,14 @@ func (s *session) update() {
 	s.waitForResult()
 
 	s.syncProductCategories()
-	s.waitForResult()
+	s.waitForRefreshResult()
 }
 
 func (s *session) refresh() {
 	defer s.db.Close()
 
 	s.syncProductCategories()
-	s.waitForResult()
+	s.waitForRefreshResult()
 }
 
 func (s *session) worker() {

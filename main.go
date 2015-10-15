@@ -15,6 +15,11 @@ var dbPassword = flag.String("dbPassword", "password", "database password")
 var dbAddr = flag.String("dbAddr", "localhost", "database address")
 var dbPort = flag.Int("dbPort", 3306, "database port")
 var database = flag.String("database", "database", "database name")
+var SessionQueue = make(chan int, 1)
+
+type sessionmessage struct {
+  session  *session
+}
 
 func getSession(req *http.Request) (session, Response) {
 	var s session
@@ -38,6 +43,19 @@ func getSession(req *http.Request) (session, Response) {
 	return s, resp
 }
 
+func runAction(s session, action string) {
+	SessionQueue <- 1
+	log.Println("Starting action " + action)
+	s.prepare()
+	if action == "refresh" {
+		s.refresh()
+	} else if action == "update" {
+		s.update()
+	} else {
+		<-SessionQueue
+  }
+}
+
 // handler handles incoming requests for feed updates.
 // the feed is validated and passed on to f.fetch chan.
 func updateFeedsHandler(rw http.ResponseWriter, req *http.Request) {
@@ -49,8 +67,7 @@ func updateFeedsHandler(rw http.ResponseWriter, req *http.Request) {
 		fmt.Fprint(rw, resp)
 
 		if len(s.feeds) > 0 {
-			s.prepare()
-			go s.update()
+			go runAction(s, "update")
 		}
 
 	} else {
@@ -64,8 +81,8 @@ func refreshHandler(rw http.ResponseWriter, req *http.Request) {
 		s, resp := getSession(req)
 
 		fmt.Fprint(rw, resp)
-		s.prepare()
-		go s.refresh()
+
+		go runAction(s, "refresh")
 	} else {
 		http.NotFound(rw, req)
 	}

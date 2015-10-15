@@ -2,6 +2,12 @@ package main
 
 import "log"
 
+type categorymessage struct {
+	category   *category
+	err    error
+	action string
+}
+
 type category struct {
 	ID          int
 	ParentID    int
@@ -208,5 +214,7 @@ func (c *category) syncProducts(s *session) error {
 			}
 		}
 	}
+	
+	s.CategoryDone <- categorymessage{category: c, err: nil, action: "syncProducts"}
 	return err
 }
