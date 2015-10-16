@@ -277,7 +277,7 @@ func (s *session) waitForRefreshResult() {
 			log.Println(m.category.Name + " completed.")
 		}
 		if i == len(s.categories) - 1 {
-			log.Println("Session done")
+			log.Println("Session " + s.site.Name + " done")
  			<-SessionQueue
     }
 	}
