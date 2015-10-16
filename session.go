@@ -261,11 +261,13 @@ func (s *session) waitForResult() {
 		select {
 		case m := <-s.FeedDone:
 			log.Println(m.feed.Name + " " + m.action + " completed.")
-			s.syncProductCategories()
-			s.waitForRefreshResult()
 		case m := <-s.FeedError:
 			log.Println("Errors in "+m.feed.Name+" "+m.action, m.err)
 			<-SessionQueue
+		}
+		if i == len(s.feeds) - 1 {
+			s.syncProductCategories()
+			s.waitForRefreshResult()
 		}
 	}
 }
