@@ -67,6 +67,7 @@ func (f *feed) update(s *session) {
 	}
 
 	log.Println("Synced " + strconv.Itoa(f.ProductsCount) + " products")
+	log.Println(f.ProductsCount)
 
 	for i := 1; i < f.ProductsCount+1; i++ {
 		select {
@@ -273,6 +274,7 @@ func (f *feed) syncProducts(s *session) error {
 				s.DBOperation <- m
 				log.Println("Added DBOperation " + k)
 			}
+			log.Println(p.Name + " done.")
 		}
 
 		// Check if DBProduct no longer exists in feed, delete
@@ -285,6 +287,7 @@ func (f *feed) syncProducts(s *session) error {
 				m := message{feed: f, product: p}
 				f.ProductsCount++
 				s.DBOperation <- m
+				log.Println("Deleted " + p.Name)
 			}
 		}
 	}
