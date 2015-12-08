@@ -197,7 +197,6 @@ func (f *feed) syncProducts(s *session) error {
 		// Check if product exists in DB, update or insert appropriately
 		for k, p := range f.Products {
 			_, ok := dbProducts[k]
-			log.Println(k, ok)
 			if ok {
 				p.ID = dbProducts[k].ID
 
