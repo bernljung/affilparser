@@ -271,7 +271,9 @@ func (f *feed) syncProducts(s *session) error {
 				m := message{feed: f, product: p}
 				f.ProductsCount++
 				log.Println(f.ProductsCount)
+				log.Println(len(s.DBOperation))
 				s.DBOperation <- m
+				log.Println(len(s.DBOperation))
 				log.Println("Added DBOperation " + k)
 			}
 			log.Println(p.Name + " done.")
