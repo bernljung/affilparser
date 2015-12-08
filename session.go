@@ -36,7 +36,7 @@ type session struct {
 	DBOperation                                       chan message
 	FeedDone                                          chan feedmessage
 	FeedError                                         chan feedmessage
-	CategoryDone																			chan categorymessage
+	CategoryDone                                      chan categorymessage
 }
 
 func (s *session) init(subdomain string) error {
@@ -265,7 +265,8 @@ func (s *session) waitForResult() {
 			log.Println("Errors in "+m.feed.Name+" "+m.action, m.err)
 			<-SessionQueue
 		}
-		if i == len(s.feeds) - 1 {
+		log.Println("WaitForResult: " + string(i) + "/" + string(len(s.feeds)))
+		if i == len(s.feeds)-1 {
 			s.syncProductCategories()
 			s.waitForRefreshResult()
 		}
@@ -278,10 +279,11 @@ func (s *session) waitForRefreshResult() {
 		case m := <-s.CategoryDone:
 			log.Println(m.category.Name + " completed.")
 		}
-		if i == len(s.categories) - 1 {
-			log.Println("Session " + s.site.Name + " done")
- 			<-SessionQueue
-    }
+		log.Println("WaitForRefreshResult: " + string(i) + "/" + string(len(s.categories)))
+		if i == len(s.categories)-1 {
+			log.Println("Session done: " + s.site.Name)
+			<-SessionQueue
+		}
 	}
 }
 
