@@ -68,7 +68,7 @@ func (f *feed) update(s *session) {
 
 	log.Println("Synced " + strconv.Itoa(f.ProductsCount) + " products")
 
-	for i := i; i < f.ProductsCount+1; i++ {
+	for i := 1; i < f.ProductsCount+1; i++ {
 		select {
 		case result := <-f.DBOperationDone:
 			log.Println(result)
