@@ -68,13 +68,14 @@ func (f *feed) update(s *session) {
 
 	log.Println("Synced " + strconv.Itoa(f.ProductsCount) + " products")
 
-	for i := 0; i < f.ProductsCount; i++ {
+	for i := i; i < f.ProductsCount+1; i++ {
 		select {
 		case result := <-f.DBOperationDone:
 			log.Println(result)
 		case err := <-f.DBOperationError:
 			log.Println(err)
 		}
+		log.Println("Updated " + strconv.Itoa(i) + "/" + strconv.Itoa(f.ProductsCount))
 	}
 
 	s.FeedDone <- feedmessage{feed: f, err: nil, action: "update"}
@@ -196,7 +197,7 @@ func (f *feed) syncProducts(s *session) error {
 		// Check if product exists in DB, update or insert appropriately
 		for k, p := range f.Products {
 			_, ok := dbProducts[k]
-
+			log.Println(k, ok)
 			if ok {
 				p.ID = dbProducts[k].ID
 

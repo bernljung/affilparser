@@ -297,6 +297,7 @@ func (s *session) syncProductCategories() {
 	}
 
 	for _, c := range s.categories {
+		log.Println("Syncing category " + c.getName())
 		err = c.syncProducts(s)
 		if err != nil {
 			log.Print(err)
