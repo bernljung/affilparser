@@ -199,114 +199,82 @@ func (f *feed) syncProducts(s *session) error {
 			_, ok := dbProducts[k]
 			log.Println(k, ok)
 			if ok {
-				log.Println(k + " OK")
 				p.ID = dbProducts[k].ID
 
 				if dbProducts[k].isDeleted() == true {
-					log.Println(k + " 1")
 					log.Println(dbProducts[k].Name + " reactivated!")
 					p.DBAction = DBACTION_UPDATE
 				}
-				log.Println(k + " 1-")
 
 				if dbProducts[k].isDeleted() == false && p.Description == "" && f.AllowEmptyDescription == false {
 					p.DBAction = DBACTION_DELETE
-					log.Println(k + " 2")
 				} else {
-					log.Println(k + " 3")
 					if dbProducts[k].Name != p.Name {
-						log.Println(k + " 4")
 						log.Println(f.Name + ": Site: " + strconv.Itoa(f.SiteID) + " " + dbProducts[k].Name + " updated: " + p.Name)
 						p.DBAction = DBACTION_UPDATE
 					}
-					log.Println(k + " 4-")
 
 					if dbProducts[k].Identifier != p.Identifier {
-						log.Println(k + " 5")
 						log.Println(f.Name + ": Site: " + strconv.Itoa(f.SiteID) + " " + dbProducts[k].Name + " identifier (" + dbProducts[k].Identifier + ") updated: " + p.Identifier)
 						p.DBAction = DBACTION_UPDATE
 					}
-					log.Println(k + " 5-")
 
 					if dbProducts[k].Description != p.Description {
-						log.Println(k + " 6")
 						log.Println(f.Name + ": Site: " + strconv.Itoa(f.SiteID) + " " + dbProducts[k].Name + " description (" + dbProducts[k].Description + ") updated: " + p.Description)
 						p.DBAction = DBACTION_UPDATE
 					}
-					log.Println(k + " 6-")
 
 					if strconv.FormatFloat(dbProducts[k].Price, 'f', 2, 64) != strconv.FormatFloat(p.Price, 'f', 2, 64) {
-						log.Println(k + " 7")
 						log.Println(f.Name + ": Site: " + strconv.Itoa(f.SiteID) + " " + dbProducts[k].Name + " price (" + strconv.FormatFloat(dbProducts[k].Price, 'f', 2, 64) + ") updated: " + strconv.FormatFloat(p.Price, 'f', 2, 64))
 						p.DBAction = DBACTION_UPDATE
 					}
-					log.Println(k + " 7-")
 
 					if strconv.FormatFloat(dbProducts[k].RegularPrice, 'f', 2, 64) != strconv.FormatFloat(p.RegularPrice, 'f', 2, 64) {
-						log.Println(k + " 8")
 						log.Println(dbProducts[k].RegularPrice, p.RegularPrice)
 						log.Println(f.Name + ": Site: " + strconv.Itoa(f.SiteID) + " " + dbProducts[k].Name + " regular price (" + strconv.FormatFloat(dbProducts[k].RegularPrice, 'f', 2, 64) + ") updated: " + strconv.FormatFloat(p.RegularPrice, 'f', 2, 64))
 						p.DBAction = DBACTION_UPDATE
 					}
-					log.Println(k + " 8-")
 
 					if dbProducts[k].Currency != p.Currency {
-						log.Println(k + " 9")
 						log.Println(f.Name + ": Site: " + strconv.Itoa(f.SiteID) + " " + dbProducts[k].Name + " currency (" + dbProducts[k].Currency + ") updated: " + p.Currency)
 						p.DBAction = DBACTION_UPDATE
 					}
-					log.Println(k + " 9-")
 
 					if dbProducts[k].ShippingPrice != p.ShippingPrice {
-						log.Println(k + " 10")
 						log.Println(f.Name + ": Site: " + strconv.Itoa(f.SiteID) + " " + dbProducts[k].Name + " shipping price (" + strconv.FormatFloat(dbProducts[k].ShippingPrice, 'f', 2, 64) + ") updated: " + strconv.FormatFloat(p.ShippingPrice, 'f', 2, 64))
 						p.DBAction = DBACTION_UPDATE
 					}
-					log.Println(k + " 10-")
 
 					if dbProducts[k].InStock != p.InStock {
-						log.Println(k + " 11")
 						log.Println(f.Name + ": Site: " + strconv.Itoa(f.SiteID) + " " + dbProducts[k].Name + " in stock (" + strconv.FormatBool(dbProducts[k].InStock) + ") updated: " + strconv.FormatBool(p.InStock))
 						p.DBAction = DBACTION_UPDATE
 					}
-					log.Println(k + " 11-")
 
 					if dbProducts[k].ProductURL != p.ProductURL {
-						log.Println(k + " 12")
 						log.Println(f.Name + ": Site: " + strconv.Itoa(f.SiteID) + " " + dbProducts[k].Name + " product URL (" + dbProducts[k].ProductURL + ") updated: " + p.ProductURL)
 						p.DBAction = DBACTION_UPDATE
 					}
-					log.Println(k + " 12-")
 
 					if dbProducts[k].GraphicURL != p.GraphicURL {
-						log.Println(k + " 13")
 						log.Println(f.Name + ": Site: " + strconv.Itoa(f.SiteID) + " " + dbProducts[k].Name + " graphic URL (" + dbProducts[k].GraphicURL + ") updated: " + p.GraphicURL)
 						p.DBAction = DBACTION_UPDATE
 					}
-					log.Println(k + " 13-")
 				}
 
 			} else {
-				log.Println(k + " 14")
 				p.DBAction = DBACTION_INSERT
 			}
-			log.Println(k + " 14-")
 
 			if p.DBAction > 0 {
-				log.Println(k + " 15")
 				p.FeedID = f.ID
 				p.SiteID = f.SiteID
 				m := message{feed: f, product: p}
-				log.Println(m)
 				f.ProductsCount++
 				log.Println(f.ProductsCount)
 				s.DBOperation <- m
-				log.Println("added...")
+				log.Println("Added DBOperation " + k)
 			}
-			log.Println(k + " 15-")
 		}
-
-		log.Println("16")
 
 		// Check if DBProduct no longer exists in feed, delete
 		for k, p := range dbProducts {
