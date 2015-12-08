@@ -297,8 +297,11 @@ func (f *feed) syncProducts(s *session) error {
 				p.FeedID = f.ID
 				p.SiteID = f.SiteID
 				m := message{feed: f, product: p}
+				log.Println(m)
 				f.ProductsCount++
+				log.Println(f.ProductsCount)
 				s.DBOperation <- m
+				log.Println("added...")
 			}
 			log.Println(k + " 15-")
 		}
