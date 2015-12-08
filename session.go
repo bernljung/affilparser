@@ -258,7 +258,7 @@ func (s *session) prepare() {
 }
 
 func (s *session) waitForResult() {
-	for i := 0; i < len(s.feeds); i++ {
+	for i := 1; i < len(s.feeds)+1; i++ {
 		select {
 		case m := <-s.FeedDone:
 			log.Println(m.feed.Name + " " + m.action + " completed.")
@@ -266,8 +266,8 @@ func (s *session) waitForResult() {
 			log.Println("Errors in "+m.feed.Name+" "+m.action, m.err)
 			<-SessionQueue
 		}
-		log.Println("WaitForResult: " + strconv.Itoa(i) + "/" + strconv.Itoa(len(s.feeds)-1))
-		if i == len(s.feeds)-1 {
+		log.Println("WaitForResult: " + strconv.Itoa(i) + "/" + strconv.Itoa(len(s.feeds)))
+		if i == len(s.feeds) {
 			s.syncProductCategories()
 			s.waitForRefreshResult()
 		}
@@ -275,13 +275,13 @@ func (s *session) waitForResult() {
 }
 
 func (s *session) waitForRefreshResult() {
-	for i := 0; i < len(s.categories); i++ {
+	for i := 1; i < len(s.categories)+1; i++ {
 		select {
 		case m := <-s.CategoryDone:
 			log.Println(m.category.Name + " completed.")
 		}
-		log.Println("WaitForRefreshResult: " + strconv.Itoa(i) + "/" + strconv.Itoa(len(s.categories)-1))
-		if i == len(s.categories)-1 {
+		log.Println("WaitForRefreshResult: " + strconv.Itoa(i) + "/" + strconv.Itoa(len(s.categories)))
+		if i == len(s.categories) {
 			log.Println("Session done: " + s.site.Name)
 			<-SessionQueue
 		}
