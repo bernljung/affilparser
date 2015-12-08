@@ -266,7 +266,7 @@ func (s *session) waitForResult() {
 			log.Println("Errors in "+m.feed.Name+" "+m.action, m.err)
 			<-SessionQueue
 		}
-		log.Println("WaitForResult: " + strconv.Itoa(i) + "/" + strconv.Itoa(len(s.feeds)))
+		log.Println("WaitForResult: " + strconv.Itoa(i) + "/" + strconv.Itoa(len(s.feeds)-1))
 		if i == len(s.feeds)-1 {
 			s.syncProductCategories()
 			s.waitForRefreshResult()
@@ -280,7 +280,7 @@ func (s *session) waitForRefreshResult() {
 		case m := <-s.CategoryDone:
 			log.Println(m.category.Name + " completed.")
 		}
-		log.Println("WaitForRefreshResult: " + strconv.Itoa(i) + "/" + strconv.Itoa(len(s.categories)))
+		log.Println("WaitForRefreshResult: " + strconv.Itoa(i) + "/" + strconv.Itoa(len(s.categories)-1))
 		if i == len(s.categories)-1 {
 			log.Println("Session done: " + s.site.Name)
 			<-SessionQueue
