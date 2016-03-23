@@ -50,7 +50,7 @@ func (s *session) init(subdomain string) error {
 			err.Error())
 	}
 
-	s.db.SetMaxOpenConns(1)
+	s.db.SetMaxOpenConns(5)
 
 	// This DOES open a connection if necessary.
 	// This makes sure the database is accessible.
